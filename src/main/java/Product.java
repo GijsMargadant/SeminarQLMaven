@@ -23,7 +23,7 @@ public class Product {
 
 	public Product() {
 		// TODO Auto-generated constructor stub
-		// Test
+		// Test 1 2 3
 	}
 
 }
