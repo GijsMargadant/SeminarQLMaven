@@ -113,6 +113,23 @@ public class Solver {
 		}
 		cplex.addMaximize(objExpr);
 		
+		for (int t = 0; t < T; t++) {
+			IloNumExpr capacity0 = cplex.constant(0);
+			IloNumExpr capacity1 = cplex.constant(0);
+			for (int i = 0; i < n; i ++) {
+				HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+				for (int s = 0; s < size; s++) {
+					Product prod = chunk.get(sizes[s]);
+					if (prod != null) {
+						capacity0 = cplex.sum(capacity0, cplex.prod(prod.getAverageM3(t), x[t][i][s][0]));
+						capacity1 = cplex.sum(capacity1, cplex.prod(prod.getAverageM3(t), x[t][i][s][1]));
+					}
+				}
+			}
+			cplex.addLe(capacity0, cap0);
+			cplex.addLe(capacity1, cap1);
+		}
+		
 		// Export model
 		cplex.exportModel("Model.lp");
 		
