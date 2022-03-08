@@ -94,7 +94,7 @@ public class Product {
 	 * @return sales as integer
 	 */
 	public int getSales(int week) {
-		return weeklySales[week - 1];
+		return weeklySales[week];
 	}
 	
 	/**
