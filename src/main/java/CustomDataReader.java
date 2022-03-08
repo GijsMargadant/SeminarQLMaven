@@ -52,9 +52,9 @@ public class CustomDataReader {
 	 * Products when we want to obtain parameters for constraints or objective functions.
 	 * 
 	 * @param years an integer array list with all the years that you want the data of.
-	 * 
 	 * @return an ArrayList with HashMaps containing all the Products with data for one year. Each HashMap represents
 	 * its own year. HashMaps are sorted by their natural order by year.
+	 * @throws IllegalStateException if a cell holds a data type that is not expected
 	 */
 	public ArrayList<TreeMap<String, HashMap<String, Product>>> readData(ArrayList<Integer> years) throws IllegalStateException {
 		// Initialize the result object
@@ -177,7 +177,8 @@ public class CustomDataReader {
 						result.get(index).put(chunk, chunkMap);
 					}
 				} catch (Exception e) {
-					throw new IllegalAccessError("Cell values are not as expected");
+					e.printStackTrace();
+					throw new IllegalStateException("Cell values are not as expected");
 				}
 			}
 			i++;
