@@ -112,7 +112,7 @@ public class Product {
 	 * @return average price as double
 	 */
 	public double getAveragePrice(int week) {
-		return weeklyAveragePrice[week - 1];
+		return weeklyAveragePrice[week];
 	}
 
 	/**

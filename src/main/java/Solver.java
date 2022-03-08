@@ -75,10 +75,12 @@ public class Solver {
 				for (int s = 0; s < size; s++) {
 					HashMap<String, Product> chunk = data.get(chunkNames.get(i));
 					Product prod = chunk.get(sizes[s]);
-					x[t][i][s][0] = cplex.intVar(0, Integer.MAX_VALUE, "x(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + "," + 0 + ")");
-					x[t][i][s][1] = cplex.intVar(0, Integer.MAX_VALUE, "x(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + "," + 1 + ")");
-					z[t][i][s] = cplex.intVar(0, prod.getSales(t), "z(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + ")");
-					u[t][i][s] = cplex.intVar(0, Integer.MAX_VALUE, "z(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + ")");
+					if (prod != null) {
+						x[t][i][s][0] = cplex.intVar(0, Integer.MAX_VALUE, "x(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + "," + 0 + ")");
+						x[t][i][s][1] = cplex.intVar(0, Integer.MAX_VALUE, "x(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + "," + 1 + ")");
+						z[t][i][s] = cplex.intVar(0, prod.getSales(t), "z(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + ")");
+						u[t][i][s] = cplex.intVar(0, Integer.MAX_VALUE, "z(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + ")");
+					}
 				}
 			}
 		}
@@ -90,14 +92,16 @@ public class Solver {
 			HashMap<String, Product> chunk = data.get(chunkNames.get(i));
 			for (int s = 0; s < size; s++) {
 				Product prod = chunk.get(sizes[s]);
-				cplex.addEq(u[0][i][s], 0, "Initial storage level");
-				for (int t = 0; t < T; t++) {
-					objExpr = cplex.sum(objExpr, cplex.prod(prod.getAveragePrice(t), z[t][i][s]));
-					cplex.addGe(cplex.sum(x[t][i][s][0], x[t][i][s][1]), cplex.sum(u[t][i][s], z[t][i][s]), "Constraints on goods in warehouse");
-					cplex.addLe(x[t][i][s][0], cplex.prod(cap0, cplex.sum(1, cplex.negative(y[i]))), "Constraints on goods allocation");
-					cplex.addLe(x[t][i][s][1], cplex.prod(cap1, y[i]), "Constraints on goods allocation");
-					if (t + 1 != T) {
-						cplex.addEq(cplex.sum(u[t + 1][i][s], z[t][i][s]), cplex.sum(x[t][i][s][0], x[t][i][s][1]));
+				if (prod != null) {
+					cplex.addEq(u[0][i][s], 0, "Initial storage level");
+					for (int t = 0; t < T; t++) {
+						objExpr = cplex.sum(objExpr, cplex.prod(prod.getAveragePrice(t), z[t][i][s]));
+						cplex.addGe(cplex.sum(x[t][i][s][0], x[t][i][s][1]), cplex.sum(u[t][i][s], z[t][i][s]), "Constraints on goods in warehouse");
+						cplex.addLe(x[t][i][s][0], cplex.prod(cap0, cplex.sum(1, cplex.negative(y[i]))), "Constraints on goods allocation");
+						cplex.addLe(x[t][i][s][1], cplex.prod(cap1, y[i]), "Constraints on goods allocation");
+						if (t + 1 != T) {
+							cplex.addEq(cplex.sum(u[t + 1][i][s], z[t][i][s]), cplex.sum(x[t][i][s][0], x[t][i][s][1]));
+						}
 					}
 				}
 			}
