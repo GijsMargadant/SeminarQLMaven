@@ -9,7 +9,7 @@ import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
 
 public class CustomDataReader {
 	private Workbook dataSetWb;
@@ -24,8 +24,8 @@ public class CustomDataReader {
 		// in this way. This probably only works if you have eclipse and GitHub linked. Otherwise, you should
 		// use the file paths from your own PC.
 		File data = new File(".\\dataFiles\\dataset.xlsx");
-		File relevanceScore = new File(".\\\\dataFiles\\EUR_BusinessCase_Chunk_RelevanceScore_V2.xlsx");
-		File warehouseCost = new File(".\\\\dataFiles\\EUR_BusinessCase_Sizegroup_Costs.xlsx");
+		File relevanceScore = new File(".\\dataFiles\\EUR_BusinessCase_Chunk_RelevanceScore_V2.xlsx");
+		File warehouseCost = new File(".\\dataFiles\\EUR_BusinessCase_Sizegroup_Costs.xlsx");
 		
 		try {
 			CustomDataReader cdm = new CustomDataReader(data, relevanceScore, warehouseCost);
@@ -56,9 +56,12 @@ public class CustomDataReader {
 	public CustomDataReader(File dataSet, File relevanceFactor, File sizeGroupCosts) throws FileNotFoundException {
 		// Try to safe workbooks for each file. A workbook is a collection of the different sheets in an excel.
 		try {
-			dataSetWb = new XSSFWorkbook(new FileInputStream(dataSet));
-			relevanceFactorWb = new XSSFWorkbook(new FileInputStream(relevanceFactor));
-			sizeGroupCostsWb = new XSSFWorkbook(new FileInputStream(sizeGroupCosts));
+			long tic = System.currentTimeMillis();
+			dataSetWb = WorkbookFactory.create(new FileInputStream(dataSet));
+			relevanceFactorWb = WorkbookFactory.create(new FileInputStream(relevanceFactor));
+			sizeGroupCostsWb = WorkbookFactory.create(new FileInputStream(sizeGroupCosts));
+			long tac = System.currentTimeMillis();
+			System.out.println("Time spent creating workbooks: " + (tac - tic)/1000 + " s");
 		} catch (Exception e) {
 			throw new FileNotFoundException();
 		}
@@ -220,7 +223,7 @@ public class CustomDataReader {
 				} catch (NullPointerException n) {
 					if(n.getMessage().contentEquals("Cannot invoke \"org.apache.poi.ss.usermodel.Cell.getCellType()\" because \"cell\" is null")) {
 						// In this case, probably a cell is empty. We just skip the line in the database
-						System.err.println("In line " + (i + 1) + " is a missing value. Deleted the line from the data set.");
+						System.err.println("In line " + (i + 1) + " is a missing value. Did not insert this line in the data set.");
 					} else {
 						// In this case something else is wrong
 						n.printStackTrace();
