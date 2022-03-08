@@ -6,6 +6,7 @@
  * @totalWeeklySales is a positive integer for total weekly units of product sold
  * @averageM3 is a positive double for the volume in m3 of one unit of product
  * @averagePrice is a positive double for the average selling price of one unit of product
+ * @shop is a string representing the shop to which the product group belongs
  * @chunk is a string representing the name of the chunk
  * @name is a string representing the name of the product (groupSize)
  * @unitStorageCost is a double representing the warehousing cost of one unit of product
@@ -19,12 +20,13 @@ public class Product {
 	private int[] weeklySales;
 	private double[] weeklyAverageM3;
 	private double[] weeklyAveragePrice;
+	private String shop;
+	private String productGroup;
 	private String chunk;
 	private String sizeGroup;
 	private double unitStorageCost;
 	private double relevanceScore;
 	private int year;
-	private boolean isGeneralToy;
 
 	/**
 	 * This constructor initializes a product with all data that is not time dependent. Time dependent
@@ -36,12 +38,13 @@ public class Product {
 	 * @param unitStorageCost the unit StorageCost of the product as double
 	 * @param relevanceScore the relevance score of the product as double
 	 */
-	public Product(String chunk, String sizeGroup, boolean isGeneralToy, int year,
+	public Product(String shop, String productGroup, String chunk, String sizeGroup, int year,
 			double unitStorageCost, double relevanceScore) {
 		// Initialize all variables and arrays
 		this.chunk = chunk;
 		this.sizeGroup = sizeGroup;
-		this.isGeneralToy = isGeneralToy;
+		this.shop = shop;
+		this.productGroup = productGroup;
 		this.year = year;
 		this.unitStorageCost = unitStorageCost;
 		this.relevanceScore = relevanceScore;
@@ -60,56 +63,56 @@ public class Product {
 	
 	/**
 	 * This method sets the qty of sales for a certain week
-	 * @param week
+	 * @param week goes from 1 to 52
 	 * @param qty
 	 */
 	public void addSale(int week, int qty) {
-		weeklySales[week] = qty;
+		weeklySales[week - 1] = qty;
 	}
 	
 	/**
 	 * This method sets the averageM3 for a given week
-	 * @param week
+	 * @param week goes from 1 to 52
 	 * @param volume
 	 */
 	public void addAverageM3(int week, double volume) {
-		weeklyAverageM3[week] = volume; 
+		weeklyAverageM3[week - 1] = volume; 
 	}
 	
 	/**
 	 * This method sets the price for a given week
-	 * @param week
+	 * @param week goes from 1 to 52
 	 * @param price
 	 */
 	public void addAveragePrice(int week, double price) {
-		weeklyAveragePrice[week] = price;
+		weeklyAveragePrice[week - 1] = price;
 	}
 	
 	/**
 	 * This method returns the sales for a given week
-	 * @param week
+	 * @param week goes from 1 to 52
 	 * @return sales as integer
 	 */
 	public int getSales(int week) {
-		return weeklySales[week];
+		return weeklySales[week - 1];
 	}
 	
 	/**
 	 * This method returns the averageM3 for a given week
-	 * @param week
+	 * @param week goes from 1 to 52
 	 * @return averageM3 as double
 	 */
 	public double getAverageM3(int week) {
-		return weeklyAverageM3[week];
+		return weeklyAverageM3[week - 1];
 	}
 	
 	/**
 	 * This method gives the average price for a given week
-	 * @param week
+	 * @param week goes from 1 to 52
 	 * @return average price as double
 	 */
 	public double getAveragePrice(int week) {
-		return weeklyAveragePrice[week];
+		return weeklyAveragePrice[week - 1];
 	}
 
 	/**
@@ -196,16 +199,8 @@ public class Product {
 	 * Basic getter method
 	 * @return
 	 */
-	public boolean isGeneralToy() {
-		return isGeneralToy;
-	}
-
-	/**
-	 * Basic setter method
-	 * @param isGeneralToy
-	 */
-	public void setGeneralToy(boolean isGeneralToy) {
-		this.isGeneralToy = isGeneralToy;
+	public boolean belongsToGeneralToys() {
+		return productGroup.equals("General Toys");
 	}
 
 	/**
@@ -231,4 +226,22 @@ public class Product {
 	public double[] getWeeklyAveragePrice() {
 		return weeklyAveragePrice;
 	}
+
+	public String getShop() {
+		return shop;
+	}
+
+	public void setShop(String shop) {
+		this.shop = shop;
+	}
+
+	public String getProductGroup() {
+		return productGroup;
+	}
+
+	public void setProductGroup(String productGroup) {
+		this.productGroup = productGroup;
+	}
+	
+	
 }
