@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.TreeMap;
 
-import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -15,6 +14,10 @@ public class CustomDataReader {
 	private Workbook dataSetWb;
 	private Workbook relevanceFactorWb;
 	private Workbook sizeGroupCostsWb;
+	
+	// Since there are only 2 productGroups, we can distinguish them based on a boolean value.
+	// This key is used to compare with the excel data.
+	private final String PRODUCT_GROUP_KEY = "General Toys";
 	
 
 	/**
@@ -96,7 +99,10 @@ public class CustomDataReader {
 			i++;
 		}
 		
-		// Now start creating all the products
+		// Now start creating all the products and save them in results
+		
+		// ------------------------------------
+		// HEADER NAMES WITH COLUMN INDEX
 		// YEAR 0
 		// WEEK 1
 		// QTY_SALES 2
@@ -105,37 +111,79 @@ public class CustomDataReader {
 		// SIZE_GROUP 6
 		// AVERAGE_M3 7
 		// AVERAGE_PRICE 8
+		// ------------------------------------
+		
 		i = 0;
 		for(Row row : dataSheet) {
 			// Skip the header of the table
 			if(i != 0) {
 				try {
+					
+					// TODO Check whether the data from the excel is valid, e.g. no negative demand
+					
+					// Find all primary necessary data to find out whether we need to add a new
+					// product or that we just need to add time series data.
 					int year = (int) row.getCell(0).getNumericCellValue();
 					int week = (int) row.getCell(1).getNumericCellValue();
 					int qtySales = (int) row.getCell(2).getNumericCellValue();
-					String productGroup = row.getCell(3).getStringCellValue();
 					String chunk = row.getCell(5).getStringCellValue();
 					String sizeGroup = row.getCell(6).getStringCellValue();
 					double averageM3 = row.getCell(7).getNumericCellValue();
 					double averagePrice = row.getCell(8).getNumericCellValue();
 					
-					// Find warehouse cost and relevance
-					double warehouseCost = sizeGroupCost.get(sizeGroup);
-					double relevance = relevanceData.get(chunk);
-					
-					// TODO find out if the data of an instance belongs to a Product
-					// object that already exists. If yes, add the data to it. If not,
-					// create a new Product object.
-					
-					
+					// Check whether or not the Product already exists in the result data structure.
+					// If it does, just add the time series data to the product.
+					// If it does not, create a new Product object and add it to results
+					int index = years.indexOf(year);
+					if(result.get(index).containsKey(chunk)) {
+						if(result.get(index).get(chunk).containsKey(sizeGroup)) {
+							// In this case, we only need to add time series data to an already existing
+							// product
+							result.get(index).get(chunk).get(sizeGroup).addSale(week, qtySales);
+							result.get(index).get(chunk).get(sizeGroup).addAverageM3(week, averageM3);
+							result.get(index).get(chunk).get(sizeGroup).addAveragePrice(week, averagePrice);
+						} else {
+							// In this case, we only need to add the product to the chunk HashMap
+							// Find secondary data in order to create a new product
+							String productGroup = row.getCell(3).getStringCellValue();
+							double warehouseCost = sizeGroupCost.get(sizeGroup);
+							double relevance = relevanceData.get(chunk);
+							boolean isGeneralToy = productGroup.equals(PRODUCT_GROUP_KEY);
+							Product product = new Product(chunk, sizeGroup, isGeneralToy, year, warehouseCost, relevance);
+							// Add time series data
+							product.addSale(week, qtySales);
+							product.addAverageM3(week, averageM3);
+							product.addAveragePrice(week, averagePrice);
+							// Add the new object to the result
+							result.get(index).get(chunk).put(sizeGroup, product);
+						}
+					} else {
+						// In this case, we need to add the chunk to the big HashMap and the product
+						// to a new chunk HashMap
+						// Find secondary data in order to create a new product
+						// Find secondary data in order to create a new product
+						String productGroup = row.getCell(3).getStringCellValue();
+						double warehouseCost = sizeGroupCost.get(sizeGroup);
+						double relevance = relevanceData.get(chunk);
+						boolean isGeneralToy = productGroup.equals(PRODUCT_GROUP_KEY);
+						Product product = new Product(chunk, sizeGroup, isGeneralToy, year, warehouseCost, relevance);
+						// Add time series data
+						product.addSale(week, qtySales);
+						product.addAverageM3(week, averageM3);
+						product.addAveragePrice(week, averagePrice);
+						// Add the product to a new chunk HashMap and that add it to the big HashMap
+						HashMap<String, Product> chunkMap = new HashMap<String, Product>();
+						chunkMap.put(sizeGroup, product);
+						result.get(index).put(chunk, chunkMap);
+					}
 				} catch (Exception e) {
 					throw new IllegalAccessError("Cell values are not as expected");
 				}
 			}
 			i++;
 		}
-		
-		
 		return result;
 	}
+	
+	
 }
