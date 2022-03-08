@@ -94,7 +94,7 @@ public class Product {
 	 * @return sales as integer
 	 */
 	public int getSales(int week) {
-		return weeklySales[week - 1];
+		return weeklySales[week];
 	}
 	
 	/**
@@ -112,7 +112,7 @@ public class Product {
 	 * @return average price as double
 	 */
 	public double getAveragePrice(int week) {
-		return weeklyAveragePrice[week - 1];
+		return weeklyAveragePrice[week];
 	}
 
 	/**
