@@ -11,6 +11,7 @@
  * @unitStorageCost is a double representing the warehousing cost of one unit of product
  * @relevanceScore is a positive double between zero and one representing the relevance of the
  * product
+ * @year the year in which the data was obtained
  */
 public class Product {
 	private int[] weeklySales;
@@ -20,6 +21,7 @@ public class Product {
 	private String name;
 	private double unitStorageCost;
 	private double relevanceScore;
+	private int year;
 
 	public Product() {
 		// TODO Auto-generated constructor stub
