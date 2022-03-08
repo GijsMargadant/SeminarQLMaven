@@ -132,10 +132,10 @@ public class Solver {
 						Product prod = chunk.get(sizes[s]);
 						if (prod != null) {
 							if (cplex.getValue(y[i]) <= 0.5) {
-								System.out.println("We store " + chunkNames.get(i) + " in small warehouse with amount " + cplex.getValue(x[t][i][s][0]) + " of size " + sizes[s] + " in week " + t);
+								System.out.println("We store " + chunkNames.get(i) + " in small warehouse with amount " + Math.round(cplex.getValue(x[t][i][s][0])) + " of size " + sizes[s] + " in week " + t);
 							}
 							else {
-								System.out.println("We store " + chunkNames.get(i) + " in big warehouse with amount " + cplex.getValue(x[t][i][s][0]) + " of size " + sizes[s] + " in week " + t);	
+								System.out.println("We store " + chunkNames.get(i) + " in big warehouse with amount " + Math.round(cplex.getValue(x[t][i][s][0])) + " of size " + sizes[s] + " in week " + t);	
 							}
 						}
 					}
