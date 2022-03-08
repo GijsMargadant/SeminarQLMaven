@@ -35,7 +35,7 @@ public class Solver {
 		
 		HashMap<String, HashMap<String, Product>> trial = new HashMap<String, HashMap<String, Product>>();
 		trial.put("Poppenverzorgingsproduct", dt.get(0).get("Poppenverzorgingsproduct"));
-		trial.put("Speelgoedwatersproeier", dt.get(0).get("Speelgoedwatersproeier"));
+		trial.put("Speelgoedemmer", dt.get(0).get("Speelgoedemmer"));
 		
 		// Optimize the problem.
 		String[] sizes = {"XXXS", "XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"};
