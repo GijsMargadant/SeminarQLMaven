@@ -20,7 +20,7 @@ public class CustomDataReader {
 	public static void main(String[] args) {
 		long tic = System.currentTimeMillis();
 		
-		boolean onWindows = false;
+//		boolean onWindows = false;
 		
 		// Since I've created a dataFile folder in the project containing all xlsx files, you can access them
 		// in this way. This probably only works if you have eclipse and GitHub linked. Otherwise, you should
@@ -28,8 +28,10 @@ public class CustomDataReader {
 		File data;
 		File relevanceScore;
 		File warehouseCost;
-		if (onWindows) {
-			data = data = new File(".\\dataFiles\\dataset.xlsx");
+		// Check your operating system in order to correctly specify file paths
+		String os = System.getProperty("os.name").toLowerCase();
+		if (os.indexOf("win") >= 0) {
+			data = new File(".\\dataFiles\\dataset.xlsx");
 			relevanceScore = new File(".\\dataFiles\\EUR_BusinessCase_Chunk_RelevanceScore_V2.xlsx");
 			warehouseCost = new File(".\\dataFiles\\EUR_BusinessCase_Sizegroup_Costs.xlsx");
 		}else {
