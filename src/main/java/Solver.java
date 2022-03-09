@@ -42,8 +42,8 @@ public class Solver {
 				
 		try
 		{
-			solve(52, sizes, trial);
-//			solve(52, sizes, dt.get(0));
+//			solve(52, sizes, trial);
+			solve(52, sizes, dt.get(0));
 		}
 		catch (IloException e)
 		{
@@ -52,12 +52,6 @@ public class Solver {
 		}	
 	}
 	
-	/**
-	 * TODO
-	 * @param coordinates
-	 * @param distances
-	 * @throws IloException
-	 */
 	public static void solve(int T, String[] sizes, HashMap<String, HashMap<String, Product>> data) throws IloException
 	{
 		// Create the model.
@@ -103,7 +97,7 @@ public class Solver {
 						objExpr = cplex.sum(objExpr, cplex.prod(prod.getAveragePrice(t), z[t][i][s]));
 						// Use one of the two
 //						cplex.addGe(cplex.sum(x[t][i][s][0], x[t][i][s][1]), cplex.sum(u[t][i][s], z[t][i][s]), "Constraints on goods in warehouse");
-						cplex.addGe(cplex.sum(x[t][i][s][0], x[t][i][s][1]), z[t][i][s], "Constraints on goods in warehouse");
+						cplex.addEq(cplex.sum(x[t][i][s][0], x[t][i][s][1]), z[t][i][s], "Constraints on goods in warehouse");
 						
 						cplex.addLe(x[t][i][s][0], cplex.prod(cap0, cplex.sum(1, cplex.negative(y[i]))), "Constraints on warehouse goods allocation");
 						cplex.addLe(x[t][i][s][1], cplex.prod(cap1, y[i]), "Constraints on warehouse goods allocation");
@@ -144,7 +138,7 @@ public class Solver {
 		if (cplex.getStatus() == IloCplex.Status.Optimal)
 		{
 			System.out.println("Found optimal solution!");
-			System.out.println("Objective = " + cplex.getObjValue() + " kilometers.");
+			System.out.println("Objective = " + cplex.getObjValue());
 			for (int t = 0; t < T; t++)	{
 				for (int i = 0; i < n; i ++) {
 					for (int s = 0; s < size; s++) {
@@ -155,7 +149,7 @@ public class Solver {
 								System.out.println("We store " + chunkNames.get(i) + " in small warehouse with amount " + Math.round(cplex.getValue(x[t][i][s][0])) + " of size " + sizes[s] + " in week " + t);
 							}
 							else {
-								System.out.println("We store " + chunkNames.get(i) + " in big warehouse with amount " + Math.round(cplex.getValue(x[t][i][s][0])) + " of size " + sizes[s] + " in week " + t);	
+								System.out.println("We store " + chunkNames.get(i) + " in big warehouse with amount " + Math.round(cplex.getValue(x[t][i][s][1])) + " of size " + sizes[s] + " in week " + t);	
 							}
 						}
 					}
