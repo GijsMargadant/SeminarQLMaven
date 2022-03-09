@@ -23,9 +23,9 @@ public class CustomDataReader {
 		// Since I've created a dataFile folder in the project containing all xlsx files, you can access them
 		// in this way. This probably only works if you have eclipse and GitHub linked. Otherwise, you should
 		// use the file paths from your own PC.
-		File data = new File(".\\dataFiles\\dataset.xlsx");
-		File relevanceScore = new File(".\\dataFiles\\EUR_BusinessCase_Chunk_RelevanceScore_V2.xlsx");
-		File warehouseCost = new File(".\\dataFiles\\EUR_BusinessCase_Sizegroup_Costs.xlsx");
+		File data = new File("./dataFiles/dataset.xlsx");
+		File relevanceScore = new File("./dataFiles/EUR_BusinessCase_Chunk_RelevanceScore_V2.xlsx");
+		File warehouseCost = new File("./dataFiles/EUR_BusinessCase_Sizegroup_Costs.xlsx");
 		
 		try {
 			CustomDataReader cdm = new CustomDataReader(data, relevanceScore, warehouseCost);
@@ -155,6 +155,7 @@ public class CustomDataReader {
 		i = 0;
 		for(Row row : dataSheet) {
 			// Skip the header of the table
+			
 			if(i != 0) {
 				try {
 					
@@ -170,8 +171,12 @@ public class CustomDataReader {
 					String sizeGroup = getCellValueAsString(row.getCell(6));
 					sizeGroup = convertSizeFormat(sizeGroup);
 					double averageM3 = Double.parseDouble(getCellValueAsString(row.getCell(7)));
-					double averagePrice = Double.parseDouble(getCellValueAsString(row.getCell(8)));
-					
+					double averagePrice;
+					if (row.getCell(8) != null) {
+						averagePrice = Double.parseDouble(getCellValueAsString(row.getCell(8)));
+					}else {
+						averagePrice = 0; 
+					}
 					// Check whether or not the Product already exists in the result data structure.
 					// If it does, just add the time series data to the product.
 					// If it does not, create a new Product object and add it to results
