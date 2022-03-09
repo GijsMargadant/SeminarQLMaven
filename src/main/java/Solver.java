@@ -35,15 +35,15 @@ public class Solver {
 		
 		HashMap<String, HashMap<String, Product>> trial = new HashMap<String, HashMap<String, Product>>();
 		trial.put("Poppenverzorgingsproduct", dt.get(0).get("Poppenverzorgingsproduct"));
-		trial.put("Speelgoedwatersproeier", dt.get(0).get("Speelgoedwatersproeier"));
+		trial.put("Speelgoedemmer", dt.get(0).get("Speelgoedemmer"));
 		
 		// Optimize the problem.
 		String[] sizes = {"XXXS", "XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"};
 				
 		try
 		{
-			solve(52, sizes, trial);
-//			solve(52, sizes, dt.get(0));
+//			solve(52, sizes, trial);
+			solve(52, sizes, dt.get(0));
 		}
 		catch (IloException e)
 		{
@@ -52,12 +52,6 @@ public class Solver {
 		}	
 	}
 	
-	/**
-	 * TODO
-	 * @param coordinates
-	 * @param distances
-	 * @throws IloException
-	 */
 	public static void solve(int T, String[] sizes, HashMap<String, HashMap<String, Product>> data) throws IloException
 	{
 		// Create the model.
@@ -71,7 +65,7 @@ public class Solver {
 		// Create the variables and their domain restrictions.
 		IloNumVar [][][][] x = new IloNumVar[T][n][size][2];
 		IloNumVar [][][] z = new IloNumVar[T][n][size];
-		IloNumVar [][][] u = new IloNumVar[T][n][size];
+//		IloNumVar [][][] u = new IloNumVar[T][n][size];
 		IloNumVar [] y = new IloNumVar[n];
 		
 		for (int i = 0; i < n; i ++) {
@@ -83,8 +77,8 @@ public class Solver {
 					if (prod != null) {
 						x[t][i][s][0] = cplex.intVar(0, Integer.MAX_VALUE, "x(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + "," + 0 + ")");
 						x[t][i][s][1] = cplex.intVar(0, Integer.MAX_VALUE, "x(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + "," + 1 + ")");
-						z[t][i][s] = cplex.intVar(0, prod.getSales(t), "z(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + ")");
-						u[t][i][s] = cplex.intVar(0, Integer.MAX_VALUE, "z(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + ")");
+						z[t][i][s] = cplex.intVar(0, Math.max(prod.getSales(t), 0), "z(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + ")");
+//						u[t][i][s] = cplex.intVar(0, Integer.MAX_VALUE, "z(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + ")");
 					}
 				}
 			}
@@ -98,20 +92,40 @@ public class Solver {
 			for (int s = 0; s < size; s++) {
 				Product prod = chunk.get(sizes[s]);
 				if (prod != null) {
-					cplex.addEq(u[0][i][s], 0, "Initial storage level");
+//					cplex.addEq(u[0][i][s], 0, "Initial storage level");
 					for (int t = 0; t < T; t++) {
 						objExpr = cplex.sum(objExpr, cplex.prod(prod.getAveragePrice(t), z[t][i][s]));
-						cplex.addGe(cplex.sum(x[t][i][s][0], x[t][i][s][1]), cplex.sum(u[t][i][s], z[t][i][s]), "Constraints on goods in warehouse");
-						cplex.addLe(x[t][i][s][0], cplex.prod(cap0, cplex.sum(1, cplex.negative(y[i]))), "Constraints on goods allocation");
-						cplex.addLe(x[t][i][s][1], cplex.prod(cap1, y[i]), "Constraints on goods allocation");
-						if (t + 1 != T) {
-							cplex.addEq(cplex.sum(u[t + 1][i][s], z[t][i][s]), cplex.sum(x[t][i][s][0], x[t][i][s][1]), "Inventory at the beginning of the period");
-						}
+						// Use one of the two
+//						cplex.addGe(cplex.sum(x[t][i][s][0], x[t][i][s][1]), cplex.sum(u[t][i][s], z[t][i][s]), "Constraints on goods in warehouse");
+						cplex.addEq(cplex.sum(x[t][i][s][0], x[t][i][s][1]), z[t][i][s], "Constraints on goods in warehouse");
+						
+						cplex.addLe(x[t][i][s][0], cplex.prod(cap0, cplex.sum(1, cplex.negative(y[i]))), "Constraints on warehouse goods allocation");
+						cplex.addLe(x[t][i][s][1], cplex.prod(cap1, y[i]), "Constraints on warehouse goods allocation");
+//						if (t + 1 != T) {
+//							cplex.addEq(cplex.sum(u[t + 1][i][s], z[t][i][s]), cplex.sum(x[t][i][s][0], x[t][i][s][1]), "Inventory at the beginning of the period");
+//						}
 					}
 				}
 			}
 		}
 		cplex.addMaximize(objExpr);
+		
+		for (int t = 0; t < T; t++) {
+			IloNumExpr capacity0 = cplex.constant(0);
+			IloNumExpr capacity1 = cplex.constant(0);
+			for (int i = 0; i < n; i ++) {
+				HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+				for (int s = 0; s < size; s++) {
+					Product prod = chunk.get(sizes[s]);
+					if (prod != null) {
+						capacity0 = cplex.sum(capacity0, cplex.prod(prod.getAverageM3(t), x[t][i][s][0]));
+						capacity1 = cplex.sum(capacity1, cplex.prod(prod.getAverageM3(t), x[t][i][s][1]));
+					}
+				}
+			}
+			cplex.addLe(capacity0, cap0, "Capacity constraint for small warehouse");
+			cplex.addLe(capacity1, cap1, "Capacity constraint for big warehouse");
+		}
 		
 		// Export model
 		cplex.exportModel("Model.lp");
@@ -124,7 +138,7 @@ public class Solver {
 		if (cplex.getStatus() == IloCplex.Status.Optimal)
 		{
 			System.out.println("Found optimal solution!");
-			System.out.println("Objective = " + cplex.getObjValue() + " kilometers.");
+			System.out.println("Objective = " + cplex.getObjValue());
 			for (int t = 0; t < T; t++)	{
 				for (int i = 0; i < n; i ++) {
 					for (int s = 0; s < size; s++) {
@@ -135,7 +149,7 @@ public class Solver {
 								System.out.println("We store " + chunkNames.get(i) + " in small warehouse with amount " + Math.round(cplex.getValue(x[t][i][s][0])) + " of size " + sizes[s] + " in week " + t);
 							}
 							else {
-								System.out.println("We store " + chunkNames.get(i) + " in big warehouse with amount " + Math.round(cplex.getValue(x[t][i][s][0])) + " of size " + sizes[s] + " in week " + t);	
+								System.out.println("We store " + chunkNames.get(i) + " in big warehouse with amount " + Math.round(cplex.getValue(x[t][i][s][1])) + " of size " + sizes[s] + " in week " + t);	
 							}
 						}
 					}

@@ -103,7 +103,7 @@ public class Product {
 	 * @return averageM3 as double
 	 */
 	public double getAverageM3(int week) {
-		return weeklyAverageM3[week - 1];
+		return weeklyAverageM3[week];
 	}
 	
 	/**
