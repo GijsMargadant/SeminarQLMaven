@@ -19,9 +19,7 @@ public class CustomDataReader {
 
 	public static void main(String[] args) {
 		long tic = System.currentTimeMillis();
-		
-//		boolean onWindows = false;
-		
+				
 		// Since I've created a dataFile folder in the project containing all xlsx files, you can access them
 		// in this way. This probably only works if you have eclipse and GitHub linked. Otherwise, you should
 		// use the file paths from your own PC.
