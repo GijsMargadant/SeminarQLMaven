@@ -9,7 +9,7 @@ import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
 
 public class CustomDataReader {
 	private Workbook dataSetWb;
@@ -19,13 +19,25 @@ public class CustomDataReader {
 
 	public static void main(String[] args) {
 		long tic = System.currentTimeMillis();
-		
+				
 		// Since I've created a dataFile folder in the project containing all xlsx files, you can access them
 		// in this way. This probably only works if you have eclipse and GitHub linked. Otherwise, you should
 		// use the file paths from your own PC.
-		File data = new File(".\\dataFiles\\dataset.xlsx");
-		File relevanceScore = new File(".\\\\dataFiles\\EUR_BusinessCase_Chunk_RelevanceScore_V2.xlsx");
-		File warehouseCost = new File(".\\\\dataFiles\\EUR_BusinessCase_Sizegroup_Costs.xlsx");
+		File data;
+		File relevanceScore;
+		File warehouseCost;
+		// Check your operating system in order to correctly specify file paths
+		String os = System.getProperty("os.name").toLowerCase();
+		if (os.indexOf("win") >= 0) {
+			data = new File(".\\dataFiles\\dataset.xlsx");
+			relevanceScore = new File(".\\dataFiles\\EUR_BusinessCase_Chunk_RelevanceScore_V2.xlsx");
+			warehouseCost = new File(".\\dataFiles\\EUR_BusinessCase_Sizegroup_Costs.xlsx");
+		}else {
+			data = new File("./dataFiles/dataset.xlsx");
+			relevanceScore = new File("./dataFiles/EUR_BusinessCase_Chunk_RelevanceScore_V2.xlsx");
+			warehouseCost = new File("./dataFiles/EUR_BusinessCase_Sizegroup_Costs.xlsx");
+		}
+		
 		
 		try {
 			CustomDataReader cdm = new CustomDataReader(data, relevanceScore, warehouseCost);
@@ -56,9 +68,12 @@ public class CustomDataReader {
 	public CustomDataReader(File dataSet, File relevanceFactor, File sizeGroupCosts) throws FileNotFoundException {
 		// Try to safe workbooks for each file. A workbook is a collection of the different sheets in an excel.
 		try {
-			dataSetWb = new XSSFWorkbook(new FileInputStream(dataSet));
-			relevanceFactorWb = new XSSFWorkbook(new FileInputStream(relevanceFactor));
-			sizeGroupCostsWb = new XSSFWorkbook(new FileInputStream(sizeGroupCosts));
+			long tic = System.currentTimeMillis();
+			dataSetWb = WorkbookFactory.create(new FileInputStream(dataSet));
+			relevanceFactorWb = WorkbookFactory.create(new FileInputStream(relevanceFactor));
+			sizeGroupCostsWb = WorkbookFactory.create(new FileInputStream(sizeGroupCosts));
+			long tac = System.currentTimeMillis();
+			System.out.println("Time spent creating workbooks: " + (tac - tic)/1000 + " s");
 		} catch (Exception e) {
 			throw new FileNotFoundException();
 		}
@@ -152,6 +167,7 @@ public class CustomDataReader {
 		i = 0;
 		for(Row row : dataSheet) {
 			// Skip the header of the table
+			
 			if(i != 0) {
 				try {
 					
@@ -167,8 +183,12 @@ public class CustomDataReader {
 					String sizeGroup = getCellValueAsString(row.getCell(6));
 					sizeGroup = convertSizeFormat(sizeGroup);
 					double averageM3 = Double.parseDouble(getCellValueAsString(row.getCell(7)));
-					double averagePrice = Double.parseDouble(getCellValueAsString(row.getCell(8)));
-					
+					double averagePrice;
+					if (row.getCell(8) != null) {
+						averagePrice = Double.parseDouble(getCellValueAsString(row.getCell(8)));
+					}else {
+						averagePrice = 0; 
+					}
 					// Check whether or not the Product already exists in the result data structure.
 					// If it does, just add the time series data to the product.
 					// If it does not, create a new Product object and add it to results
@@ -220,7 +240,7 @@ public class CustomDataReader {
 				} catch (NullPointerException n) {
 					if(n.getMessage().contentEquals("Cannot invoke \"org.apache.poi.ss.usermodel.Cell.getCellType()\" because \"cell\" is null")) {
 						// In this case, probably a cell is empty. We just skip the line in the database
-						System.err.println("In line " + (i + 1) + " is a missing value. Deleted the line from the data set.");
+						System.err.println("In line " + (i + 1) + " is a missing value. Did not insert this line in the data set.");
 					} else {
 						// In this case something else is wrong
 						n.printStackTrace();
