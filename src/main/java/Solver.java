@@ -1,6 +1,5 @@
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Set;
@@ -12,6 +11,7 @@ import ilog.cplex.IloCplex;
 import ilog.cplex.IloCplex.UnknownObjectException;
 
 /**
+ * Solver class for the problem given
  * 
  * @author Minh Ngoc Pham
  *
@@ -50,7 +50,6 @@ public class Solver {
 		trial.put("Poppenverzorgingsproduct", dt.get(0).get("Poppenverzorgingsproduct"));
 		trial.put("Speelgoedemmer", dt.get(0).get("Speelgoedemmer"));
 		
-		// Optimize the problem.
 		String[] sizes = {"XXXS", "XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"};
 				
 		try
@@ -65,6 +64,14 @@ public class Solver {
 		}	
 	}
 	
+	/**
+	 * Solver method to solve the problem
+	 * @author Minh Ngoc Pham
+	 * @param T the duration in question
+	 * @param sizes list of sizes of the chunks
+	 * @param data
+	 * @throws IloException
+	 */
 	public static void solve(int T, String[] sizes, HashMap<String, HashMap<String, Product>> data) throws IloException
 	{
 		// Create the model.
@@ -93,7 +100,7 @@ public class Solver {
 						x[t][i][s][0] = cplex.intVar(0, Integer.MAX_VALUE, "x(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + "," + 0 + ")");
 						x[t][i][s][1] = cplex.intVar(0, Integer.MAX_VALUE, "x(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + "," + 1 + ")");
 						z[t][i][s] = cplex.intVar(0, Math.max(prod.getSales(t), 0), "z(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + ")");
-//						u[t][i][s] = cplex.intVar(0, Integer.MAX_VALUE, "z(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + ")");
+//						u[t][i][s] = cplex.intVar(0, Integer.MAX_VALUE, "u(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + ")");
 					}
 				}
 			}
@@ -114,8 +121,8 @@ public class Solver {
 //						cplex.addGe(cplex.sum(x[t][i][s][0], x[t][i][s][1]), cplex.sum(u[t][i][s], z[t][i][s]), "Constraints on goods in warehouse");
 						cplex.addEq(cplex.sum(x[t][i][s][0], x[t][i][s][1]), z[t][i][s], "Constraints on goods in warehouse");
 						
-						cplex.addLe(x[t][i][s][0], cplex.prod(cap0, cplex.sum(1, cplex.negative(y[i]))), "Constraints on warehouse goods allocation");
-						cplex.addLe(x[t][i][s][1], cplex.prod(cap1, y[i]), "Constraints on warehouse goods allocation");
+						cplex.addLe(x[t][i][s][0], cplex.prod(cap0/prod.getAverageM3(t), cplex.sum(1, cplex.negative(y[i]))), "Constraints on warehouse goods allocation");
+						cplex.addLe(x[t][i][s][1], cplex.prod(cap1/prod.getAverageM3(t), y[i]), "Constraints on warehouse goods allocation");
 //						if (t + 1 != T) {
 //							cplex.addEq(cplex.sum(u[t + 1][i][s], z[t][i][s]), cplex.sum(x[t][i][s][0], x[t][i][s][1]), "Inventory at the beginning of the period");
 //						}
@@ -159,23 +166,6 @@ public class Solver {
 			
 			capacityCheck(T, sizes, cplex, x, data);
 			serviceLevel(T, sizes, cplex, x, data);
-			
-			// This should write the data to an Excel file
-			File file = new File("C:\\Users\\gijsm\\Documents\\DOCUMENTEN\\School\\SeminarCaseStudy\\SolutionFiles");
-			CustomDataWriter cdw = new CustomDataWriter(file);
-			try {
-				cdw.writeSolutionToExcelFile(cplex, y, z, data, "solution");
-			} catch (UnknownObjectException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (IloException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			
 			/*		
 			for (int t = 0; t < T; t++)	{
 				for (int i = 0; i < n; i ++) {
@@ -200,6 +190,7 @@ public class Solver {
 			System.out.println("No optimal solution found");
 		}
 	}
+	
 	/**
 	 * This method prints the capacity each week for a given solution of the solve method
 	 * All parameters come from the solve method
