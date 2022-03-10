@@ -90,7 +90,7 @@ public class Product {
 	
 	/**
 	 * This method returns the sales for a given week
-	 * @param week goes from 1 to 52
+	 * @param week goes from 0 to 51
 	 * @return sales as integer
 	 */
 	public int getSales(int week) {
@@ -99,7 +99,7 @@ public class Product {
 	
 	/**
 	 * This method returns the averageM3 for a given week
-	 * @param week goes from 1 to 52
+	 * @param week goes from 0 to 51
 	 * @return averageM3 as double
 	 */
 	public double getAverageM3(int week) {
