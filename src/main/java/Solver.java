@@ -12,7 +12,11 @@ import ilog.cplex.IloCplex.UnknownObjectException;
 
 /**
  * 
- * @author Minh Ngoc Pham
+ * @author Minh Ngoc Pham, Floris Haverman
+ * 
+ * General Comments:
+ * Solving time has increased significantly due to the service level constraint being binding. 
+ * On my (Floris) computer it takes about 3-5 minutes to run the whole program. 
  *
  */
 public class Solver {
@@ -113,8 +117,8 @@ public class Solver {
 //						cplex.addGe(cplex.sum(x[t][i][s][0], x[t][i][s][1]), cplex.sum(u[t][i][s], z[t][i][s]), "Constraints on goods in warehouse");
 						cplex.addEq(cplex.sum(x[t][i][s][0], x[t][i][s][1]), z[t][i][s], "Constraints on goods in warehouse");
 						
-						cplex.addLe(x[t][i][s][0], cplex.prod(cap0, cplex.sum(1, cplex.negative(y[i]))), "Constraints on warehouse goods allocation");
-						cplex.addLe(x[t][i][s][1], cplex.prod(cap1, y[i]), "Constraints on warehouse goods allocation");
+						cplex.addLe(x[t][i][s][0], cplex.prod(cap0 / prod.getAverageM3(t), cplex.sum(1, cplex.negative(y[i]))), "Constraints on warehouse goods allocation");
+						cplex.addLe(x[t][i][s][1], cplex.prod(cap1 / prod.getAverageM3(t), y[i]), "Constraints on warehouse goods allocation");
 //						if (t + 1 != T) {
 //							cplex.addEq(cplex.sum(u[t + 1][i][s], z[t][i][s]), cplex.sum(x[t][i][s][0], x[t][i][s][1]), "Inventory at the beginning of the period");
 //						}
@@ -141,6 +145,10 @@ public class Solver {
 			cplex.addLe(capacity1, cap1, "Capacity constraint for big warehouse");
 		}
 		
+		//Add the service level constraints
+		cplex = Solver.serviceLevelConstraint(T, sizes, cplex, z, data);
+
+		
 		// Export model
 		cplex.exportModel("Model.lp");
 		
@@ -157,8 +165,8 @@ public class Solver {
 			
 			
 			capacityCheck(T, sizes, cplex, x, data);
+			//serviceLevelWeekly(T, sizes, cplex, x, data);
 			serviceLevel(T, sizes, cplex, x, data);			
-			serviceLevelWeekly(T, sizes, cplex, x, data);
 
 			/*		
 			for (int t = 0; t < T; t++)	{
@@ -184,6 +192,55 @@ public class Solver {
 			System.out.println("No optimal solution found");
 		}
 	}
+	/**
+	 * This method adds the service level constraint to the model. 
+	 * by using a method the building of the model stays nice and tidy. 
+	 * @param T
+	 * @param sizes
+	 * @param cplex
+	 * @param x
+	 * @param data
+	 * @throws IloException
+	 */
+	public static IloCplex serviceLevelConstraint(int T,String[] sizes, IloCplex cplex, IloNumVar[][][] z, HashMap<String, HashMap<String, Product>> data ) throws IloException {
+		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
+		int n = chunkNames.size();
+		int size = sizes.length;
+		
+		IloNumExpr serviceLevelGT = cplex.constant(0);
+		IloNumExpr serviceLevelROT = cplex.constant(0);
+		double totDemandGT = 0;
+		double totDemandROT = 0;
+		for (int t = 0; t < T; t++)	{
+			for (int i = 0; i < n; i ++) {
+				HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+				for (int s = 0; s < size; s++) {
+					Product prod = chunk.get(sizes[s]);
+					if (prod != null) {
+
+						if (prod.getProductGroup().equals("General Toys")) { 
+							totDemandGT += prod.getSales(t); 
+							serviceLevelGT = cplex.sum(serviceLevelGT, z[t][i][s]);
+
+						}else {
+							totDemandROT += prod.getSales(t);
+							serviceLevelROT = cplex.sum(serviceLevelROT, z[t][i][s]);
+						}
+					}
+				}
+			}
+		}
+		//System.out.println("This is the total for GT: " + totDemandGT);
+		//System.out.println("This is the total for ROT: " + totDemandROT);
+		//System.out.println("This is the total for all: " + (totDemandGT +totDemandROT));
+		IloNumExpr minimumGT = cplex.constant(totDemandGT * 0.98); 
+		IloNumExpr minimumROT = cplex.constant(totDemandROT * 0.95); 
+		cplex.addGe(serviceLevelGT, minimumGT, "Service Level constraint for General Toys");
+		cplex.addGe(serviceLevelROT, minimumROT, "Service Level constraint for Recreational and Outdoor Toys");
+		return cplex;
+	}
+	
+	
 	/**
 	 * This method prints the capacity each week for a given solution of the solve method
 	 * All parameters come from the solve method
@@ -241,9 +298,17 @@ public class Solver {
 				for (int s = 0; s < size; s++) {
 					Product prod = chunk.get(sizes[s]);
 					if (prod != null) {
-
+						
+						/*
+						 * To see which demand is lost. I used for debugging. 
+						if (prod.getSales(t) > Math.round(cplex.getValue(x[t][i][s][0])+ cplex.getValue(x[t][i][s][1]))) {
+							System.out.println(prod.getChunk() + " " + prod.getSizeGroup() + " demand is: " + prod.getSales(t) + " sold is: " +(cplex.getValue(x[t][i][s][0])+ cplex.getValue(x[t][i][s][1])));
+						}
+						*/
+						
 						if (prod.getProductGroup().equals("General Toys")) { 
 							totDemandGT += prod.getSales(t); 
+							
 							serviceLevelGT = cplex.sum(serviceLevelGT, x[t][i][s][0]);
 							serviceLevelGT = cplex.sum(serviceLevelGT, x[t][i][s][1]);
 
@@ -256,6 +321,8 @@ public class Solver {
 				}
 			}
 		}
+		//System.out.println(cplex.getValue(serviceLevelGT) + " " +  totDemandGT );
+		//System.out.println(cplex.getValue(serviceLevelROT) + " " + totDemandROT );
 
 		System.out.println((cplex.getValue(serviceLevelGT) / totDemandGT >  0.98) +  " for the general Toys the service level is:" + cplex.getValue(serviceLevelGT) / totDemandGT);
 		System.out.println((cplex.getValue(serviceLevelROT) / totDemandROT >  0.95)+ " for the Recreational and Outdoor Toys the service level is: :"+ cplex.getValue(serviceLevelROT)/ totDemandROT);
@@ -276,10 +343,11 @@ public class Solver {
 		int n = chunkNames.size();
 		int size = sizes.length;
 		
-		IloNumExpr serviceLevelGT = cplex.constant(0);
-		IloNumExpr serviceLevelROT = cplex.constant(0);
+		
 		
 		for (int t = 0; t < T; t++)	{
+			IloNumExpr serviceLevelGT = cplex.constant(0);
+			IloNumExpr serviceLevelROT = cplex.constant(0);
 			double totDemandGT = 0;
 			double totDemandROT = 0;
 			for (int i = 0; i < n; i ++) {
@@ -309,5 +377,7 @@ public class Solver {
 		
 		
 	}
+	
+	
 		
 }
