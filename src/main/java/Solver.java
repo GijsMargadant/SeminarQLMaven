@@ -157,7 +157,9 @@ public class Solver {
 			
 			
 			capacityCheck(T, sizes, cplex, x, data);
-			serviceLevel(T, sizes, cplex, x, data);
+			serviceLevel(T, sizes, cplex, x, data);			
+			serviceLevelWeekly(T, sizes, cplex, x, data);
+
 			/*		
 			for (int t = 0; t < T; t++)	{
 				for (int i = 0; i < n; i ++) {
@@ -215,6 +217,15 @@ public class Solver {
 		}
 	}
 	
+	/**
+	 * This method returns the service level of a given solution. 
+	 * @param T
+	 * @param sizes
+	 * @param cplex
+	 * @param x
+	 * @param data
+	 * @throws IloException
+	 */
 	public static void serviceLevel(int T,String[] sizes, IloCplex cplex, IloNumVar[][][][] x, HashMap<String, HashMap<String, Product>> data ) throws IloException {
 		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
 		int n = chunkNames.size();
@@ -248,6 +259,53 @@ public class Solver {
 
 		System.out.println((cplex.getValue(serviceLevelGT) / totDemandGT >  0.98) +  " for the general Toys the service level is:" + cplex.getValue(serviceLevelGT) / totDemandGT);
 		System.out.println((cplex.getValue(serviceLevelROT) / totDemandROT >  0.95)+ " for the Recreational and Outdoor Toys the service level is: :"+ cplex.getValue(serviceLevelROT)/ totDemandROT);
+		
+		
+	}
+	/**
+	 * This method shows the week by week service level
+	 * @param T
+	 * @param sizes
+	 * @param cplex
+	 * @param x
+	 * @param data
+	 * @throws IloException
+	 */
+	public static void serviceLevelWeekly(int T,String[] sizes, IloCplex cplex, IloNumVar[][][][] x, HashMap<String, HashMap<String, Product>> data ) throws IloException {
+		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
+		int n = chunkNames.size();
+		int size = sizes.length;
+		
+		IloNumExpr serviceLevelGT = cplex.constant(0);
+		IloNumExpr serviceLevelROT = cplex.constant(0);
+		
+		for (int t = 0; t < T; t++)	{
+			double totDemandGT = 0;
+			double totDemandROT = 0;
+			for (int i = 0; i < n; i ++) {
+				HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+				for (int s = 0; s < size; s++) {
+					Product prod = chunk.get(sizes[s]);
+					if (prod != null) {
+
+						if (prod.getProductGroup().equals("General Toys")) { 
+							totDemandGT += prod.getSales(t); 
+							serviceLevelGT = cplex.sum(serviceLevelGT, x[t][i][s][0]);
+							serviceLevelGT = cplex.sum(serviceLevelGT, x[t][i][s][1]);
+
+						}else {
+							totDemandROT += prod.getSales(t);
+							serviceLevelROT = cplex.sum(serviceLevelROT, x[t][i][s][0]);
+							serviceLevelROT = cplex.sum(serviceLevelROT, x[t][i][s][1]);
+						}
+					}
+				}
+			}
+			System.out.println((cplex.getValue(serviceLevelGT) / totDemandGT >  0.98) +  " At time " + t+ " for the general Toys the service level is:" + cplex.getValue(serviceLevelGT) / totDemandGT );
+			System.out.println((cplex.getValue(serviceLevelROT) / totDemandROT >  0.95)+ " At time " + t+ " for the Recreational and Outdoor Toys the service level is: :"+ cplex.getValue(serviceLevelROT)/ totDemandROT);
+			
+		}
+
 		
 		
 	}
