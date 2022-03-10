@@ -161,16 +161,10 @@ public class Solver {
 			serviceLevel(T, sizes, cplex, x, data);
 			
 			// This should write the data to an Excel file
-			File file;
-			String os = System.getProperty("os.name").toLowerCase();
-			if (os.indexOf("win") >= 0) {
-				file = new File(".\\SolutionFiles\\");
-			}else {
-				file = new File("./SolutionFiles/");
-			}
+			File file = new File("C:\\Users\\gijsm\\Documents\\DOCUMENTEN\\School\\SeminarCaseStudy\\SolutionFiles");
 			CustomDataWriter cdw = new CustomDataWriter(file);
 			try {
-				cdw.writeSolutionToExcelFile(y, z, data, "solution");
+				cdw.writeSolutionToExcelFile(cplex, y, z, data, "solution");
 			} catch (UnknownObjectException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
