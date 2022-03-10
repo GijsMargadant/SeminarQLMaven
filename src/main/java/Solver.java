@@ -1,5 +1,6 @@
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Set;
@@ -158,6 +159,23 @@ public class Solver {
 			
 			capacityCheck(T, sizes, cplex, x, data);
 			serviceLevel(T, sizes, cplex, x, data);
+			
+			// This should write the data to an Excel file
+			File file = new File("C:\\Users\\gijsm\\Documents\\DOCUMENTEN\\School\\SeminarCaseStudy\\SolutionFiles");
+			CustomDataWriter cdw = new CustomDataWriter(file);
+			try {
+				cdw.writeSolutionToExcelFile(cplex, y, z, data, "solution");
+			} catch (UnknownObjectException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IloException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
 			/*		
 			for (int t = 0; t < T; t++)	{
 				for (int i = 0; i < n; i ++) {
