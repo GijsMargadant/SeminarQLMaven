@@ -8,6 +8,7 @@ import ilog.concert.IloException;
 import ilog.concert.IloNumExpr;
 import ilog.concert.IloNumVar;
 import ilog.cplex.IloCplex;
+import ilog.cplex.IloCplex.UnknownObjectException;
 
 /**
  * 
@@ -18,12 +19,23 @@ public class Solver {
 	
 	public static void main(String[] args) throws FileNotFoundException
 	{		
-		File data = new File(".\\dataFiles\\dataset.xlsx");
-		File relevanceScore = new File(".\\\\dataFiles\\EUR_BusinessCase_Chunk_RelevanceScore_V2.xlsx");
-		File warehouseCost = new File(".\\\\dataFiles\\EUR_BusinessCase_Sizegroup_Costs.xlsx");
+		File data;
+		File relevanceScore;
+		File warehouseCost;
+		// Check your operating system in order to correctly specify file paths
+		String os = System.getProperty("os.name").toLowerCase();
+		if (os.indexOf("win") >= 0) {
+			data = new File(".\\dataFiles\\dataset.xlsx");
+			relevanceScore = new File(".\\dataFiles\\EUR_BusinessCase_Chunk_RelevanceScore_V2.xlsx");
+			warehouseCost = new File(".\\dataFiles\\EUR_BusinessCase_Sizegroup_Costs.xlsx");
+		}else {
+			data = new File("./dataFiles/dataset.xlsx");
+			relevanceScore = new File("./dataFiles/EUR_BusinessCase_Chunk_RelevanceScore_V2.xlsx");
+			warehouseCost = new File("./dataFiles/EUR_BusinessCase_Sizegroup_Costs.xlsx");
+		}
 		
 		ArrayList<HashMap<String, HashMap<String, Product>>> dt = new ArrayList<HashMap<String, HashMap<String, Product>>>();
-		
+				
 		try {
 			CustomDataReader cdm = new CustomDataReader(data, relevanceScore, warehouseCost);
 			ArrayList<Integer> years = new ArrayList<Integer>();
@@ -59,9 +71,11 @@ public class Solver {
 		
 		double cap0 = 3000*15/100;
 		double cap1 = 15000*15/100;
+		
 		int size = sizes.length;
 		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
 		int n = chunkNames.size();
+		
 		// Create the variables and their domain restrictions.
 		IloNumVar [][][][] x = new IloNumVar[T][n][size][2];
 		IloNumVar [][][] z = new IloNumVar[T][n][size];
@@ -130,6 +144,7 @@ public class Solver {
 		// Export model
 		cplex.exportModel("Model.lp");
 		
+		
 		// Solve the model.
 
 		cplex.solve();
@@ -139,6 +154,11 @@ public class Solver {
 		{
 			System.out.println("Found optimal solution!");
 			System.out.println("Objective = " + cplex.getObjValue());
+			
+			
+			capacityCheck(T, sizes, cplex, x, data);
+			serviceLevel(T, sizes, cplex, x, data);
+			/*		
 			for (int t = 0; t < T; t++)	{
 				for (int i = 0; i < n; i ++) {
 					for (int s = 0; s < size; s++) {
@@ -155,11 +175,81 @@ public class Solver {
 					}
 				}
 			}
+			*/
 		}
 		else
 		{
 			System.out.println("No optimal solution found");
 		}
+	}
+	/**
+	 * This method prints the capacity each week for a given solution of the solve method
+	 * All parameters come from the solve method
+	 * @param T  Number of weeks
+	 * @param sizes Array this the sizes
+	 * @param cplex The cplex object
+	 * @param x The IloCplex object with all the variables
+	 * @param data The data on the products
+	 * @throws IloException 
+	 */
+	public static void capacityCheck(int T,String[] sizes, IloCplex cplex, IloNumVar[][][][] x, HashMap<String, HashMap<String, Product>> data ) throws IloException {
+		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
+		int n = chunkNames.size();
+		int size = sizes.length;
+		
+		for (int t = 0; t < T; t++)	{
+			IloNumExpr capacity0 = cplex.constant(0);
+			IloNumExpr capacity1 = cplex.constant(0);
+			for (int i = 0; i < n; i ++) {
+				HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+				for (int s = 0; s < size; s++) {
+					Product prod = chunk.get(sizes[s]);
+					if (prod != null) {
+						capacity0 = cplex.sum(capacity0, cplex.prod(prod.getAverageM3(t), x[t][i][s][0]));
+						capacity1 = cplex.sum(capacity1, cplex.prod(prod.getAverageM3(t), x[t][i][s][1]));
+					}
+				}
+			}
+			System.out.println((cplex.getValue(capacity0) < 450) + " Capasity at time " + t+ " for the small warehouse is :" + cplex.getValue(capacity0));
+			System.out.println((cplex.getValue(capacity1) < 2250)+" Capasity at time " + t+ " for the big warehouse is :"+ cplex.getValue(capacity1));
+		}
+	}
+	
+	public static void serviceLevel(int T,String[] sizes, IloCplex cplex, IloNumVar[][][][] x, HashMap<String, HashMap<String, Product>> data ) throws IloException {
+		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
+		int n = chunkNames.size();
+		int size = sizes.length;
+		
+		IloNumExpr serviceLevelGT = cplex.constant(0);
+		IloNumExpr serviceLevelROT = cplex.constant(0);
+		double totDemandGT = 0;
+		double totDemandROT = 0;
+		for (int t = 0; t < T; t++)	{
+			for (int i = 0; i < n; i ++) {
+				HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+				for (int s = 0; s < size; s++) {
+					Product prod = chunk.get(sizes[s]);
+					if (prod != null) {
+
+						if (prod.getProductGroup().equals("General Toys")) { 
+							totDemandGT += prod.getSales(t); 
+							serviceLevelGT = cplex.sum(serviceLevelGT, x[t][i][s][0]);
+							serviceLevelGT = cplex.sum(serviceLevelGT, x[t][i][s][1]);
+
+						}else {
+							totDemandROT += prod.getSales(t);
+							serviceLevelROT = cplex.sum(serviceLevelROT, x[t][i][s][0]);
+							serviceLevelROT = cplex.sum(serviceLevelROT, x[t][i][s][1]);
+						}
+					}
+				}
+			}
+		}
+
+		System.out.println((cplex.getValue(serviceLevelGT) / totDemandGT >  0.98) +  " for the general Toys the service level is:" + cplex.getValue(serviceLevelGT) / totDemandGT);
+		System.out.println((cplex.getValue(serviceLevelROT) / totDemandROT >  0.95)+ " for the Recreational and Outdoor Toys the service level is: :"+ cplex.getValue(serviceLevelROT)/ totDemandROT);
+		
+		
 	}
 		
 }
