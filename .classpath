@@ -36,5 +36,6 @@
 		</attributes>
 	</classpathentry>
 	<classpathentry kind="lib" path="/Applications/CPLEX_Studio201/cplex/lib/cplex.jar"/>
+	<classpathentry kind="lib" path="C:/Program Files/IBM/ILOG/CPLEX_Studio201/cplex/lib/cplex.jar"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>
