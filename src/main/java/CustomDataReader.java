@@ -178,17 +178,23 @@ public class CustomDataReader {
 					// Since all values in the xlsx file are of type text, we need to convert them
 					int year = Integer.parseInt(getCellValueAsString(row.getCell(0)));
 					int week = Integer.parseInt(getCellValueAsString(row.getCell(1)));
-					int qtySales = Integer.parseInt(getCellValueAsString(row.getCell(2)));
+					int qtySales = (int) Math.max(Double.parseDouble(getCellValueAsString(row.getCell(2))),0);
+					String productGroup = getCellValueAsString(row.getCell(3));
 					String chunk = getCellValueAsString(row.getCell(5));
 					String sizeGroup = getCellValueAsString(row.getCell(6));
 					sizeGroup = convertSizeFormat(sizeGroup);
-					double averageM3 = Double.parseDouble(getCellValueAsString(row.getCell(7)));
+					double averageM3 = Math.max(Double.parseDouble(getCellValueAsString(row.getCell(7))),0);
 					double averagePrice;
 					if (row.getCell(8) != null) {
-						averagePrice = Double.parseDouble(getCellValueAsString(row.getCell(8)));
+						averagePrice = Math.max(Double.parseDouble(getCellValueAsString(row.getCell(8))),0);
 					}else {
 						averagePrice = 0; 
 					}
+					
+					// Since there are chunks that are named the same, but belong to different product groups,
+					// we differentiate between all chunks based on a chunk_productGroup key
+					String chunkKey = chunk + "_" + productGroup;
+					
 					// Check whether or not the Product already exists in the result data structure.
 					// If it does, just add the time series data to the product.
 					// If it does not, create a new Product object and add it to results
@@ -196,17 +202,16 @@ public class CustomDataReader {
 					if(index >= 0) {
 						// In this case, a year is found that is specified when this method was called, so we read
 						// the data and safe it.
-						if(result.get(index).containsKey(chunk)) {
-							if(result.get(index).get(chunk).containsKey(sizeGroup)) {
+						if(result.get(index).containsKey(chunkKey)) {
+							if(result.get(index).get(chunkKey).containsKey(sizeGroup)) {
 								// In this case, we only need to add time series data to an already existing
 								// product
-								result.get(index).get(chunk).get(sizeGroup).addSale(week, qtySales);
-								result.get(index).get(chunk).get(sizeGroup).addAverageM3(week, averageM3);
-								result.get(index).get(chunk).get(sizeGroup).addAveragePrice(week, averagePrice);
+								result.get(index).get(chunkKey).get(sizeGroup).addSale(week, qtySales);
+								result.get(index).get(chunkKey).get(sizeGroup).addAverageM3(week, averageM3);
+								result.get(index).get(chunkKey).get(sizeGroup).addAveragePrice(week, averagePrice);
 							} else {
 								// In this case, we only need to add the product to the chunk HashMap
 								// Find secondary data in order to create a new product
-								String productGroup = getCellValueAsString(row.getCell(3));
 								String shop = getCellValueAsString(row.getCell(4));
 								double warehouseCost = sizeGroupCost.get(sizeGroup);
 								double relevance = relevanceData.get(chunk);
@@ -216,13 +221,12 @@ public class CustomDataReader {
 								product.addAverageM3(week, averageM3);
 								product.addAveragePrice(week, averagePrice);
 								// Add the new object to the result
-								result.get(index).get(chunk).put(sizeGroup, product);
+								result.get(index).get(chunkKey).put(sizeGroup, product);
 							}
 						} else {
 							// In this case, we need to add the chunk to the big HashMap and the product
 							// to a new chunk HashMap
 							// Find secondary data in order to create a new product
-							String productGroup = getCellValueAsString(row.getCell(3));
 							String shop = getCellValueAsString(row.getCell(4));
 							double warehouseCost = sizeGroupCost.get(sizeGroup);
 							double relevance = relevanceData.get(chunk);
@@ -234,7 +238,7 @@ public class CustomDataReader {
 							// Add the product to a new chunk HashMap and that add it to the big HashMap
 							HashMap<String, Product> chunkMap = new HashMap<String, Product>();
 							chunkMap.put(sizeGroup, product);
-							result.get(index).put(chunk, chunkMap);
+							result.get(index).put(chunkKey, chunkMap);
 						}
 					}
 				} catch (NullPointerException n) {
