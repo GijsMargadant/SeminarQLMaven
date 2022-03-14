@@ -149,8 +149,35 @@ public class Solver {
 		}
 		
 		//Add the service level constraints
-		cplex = Solver.serviceLevelConstraint(T, sizes, cplex, z, data);
+		//cplex = Solver.serviceLevelConstraint(T, sizes, cplex, z, data);
+		//cplex = Solver.serviceLevelConstraintWithOverall(T, sizes, cplex, z, data, 0.98);
+		
+		/*
+		cplex.setOut(null);
+		for (int j = 0; j < 1; j++) {
+			double overallServiceLevel = 0.983 + j * 0.3;
+			cplex = Solver.serviceLevelConstraintWithOverall(T, sizes, cplex, z, data, overallServiceLevel);
+			System.out.println("The solution is now solved for overall service level: " + overallServiceLevel);
 
+			cplex.solve();
+			if (cplex.getStatus() == IloCplex.Status.Optimal)
+			{
+				System.out.println("Found optimal solution!");
+				System.out.println("Objective = " + cplex.getObjValue());
+			
+				//capacityCheck(T, sizes, cplex, x, data);
+				serviceLevel(T, sizes, cplex, z, data);
+				
+			}
+			else
+			{
+				System.out.println("No optimal solution found");
+			}
+		}
+		*/
+		// The last three parameters are nbr of steps, size of the steps, and value of first step. 
+		// So: 2, 0.003, 0.98 means it is solved for an overall service level greater then 0.98 and 0.983
+		solveForDifferentServiceLevels(T, sizes, cplex, z, data, 10, 0.001, 0.982);
 		
 		// Export model
 		cplex.exportModel("Model.lp");
@@ -167,14 +194,13 @@ public class Solver {
 			System.out.println("Objective = " + cplex.getObjValue());
 			
 			
-			capacityCheck(T, sizes, cplex, x, data);
+			//capacityCheck(T, sizes, cplex, x, data);
 			serviceLevel(T, sizes, cplex, z, data);
 			projectedOn2019(T, sizes, cplex, z, data, data);
 			//serviceLevelWeekly(T, sizes, cplex, x, data);
 			
-			ArrayList<HashMap<String, HashMap<String, Product>>> dt2019 = readData(new ArrayList<Integer>(Arrays.asList(2019)));
-			projectedOn2019(T, sizes, cplex, z, data, dt2019.get(0));
-
+			//ArrayList<HashMap<String, HashMap<String, Product>>> dt2019 = readData(new ArrayList<Integer>(Arrays.asList(2019)));
+			//sprojectedOn2019(T, sizes, cplex, z, data, dt2019.get(0));
 			
 			
 			boolean writeSolutionToDucument = false;
@@ -219,6 +245,33 @@ public class Solver {
 		else
 		{
 			System.out.println("No optimal solution found");
+		}
+	}
+	
+	public static void solveForDifferentServiceLevels(int T,String[] sizes, IloCplex cplex, IloNumVar[][][] z, 
+			HashMap<String, HashMap<String, Product>> data, 
+			int nbrSteps, double sizeSteps, double startValue) throws IloException {
+
+		cplex.setOut(null);
+		for (int j = 0; j < nbrSteps; j++) {
+			double overallServiceLevel = startValue + j * sizeSteps;
+			cplex = Solver.serviceLevelConstraintWithOverall(T, sizes, cplex, z, data, overallServiceLevel);
+			System.out.println("The solution is now solved for overall service level: " + overallServiceLevel);
+
+			cplex.solve();
+			if (cplex.getStatus() == IloCplex.Status.Optimal)
+			{
+				System.out.println("Found optimal solution!");
+				System.out.println("Objective = " + cplex.getObjValue());
+			
+				//capacityCheck(T, sizes, cplex, x, data);
+				serviceLevel(T, sizes, cplex, z, data);
+				
+			}
+			else
+			{
+				System.out.println("No optimal solution found");
+			}
 		}
 	}
 	/**
@@ -300,7 +353,7 @@ public class Solver {
 					Product prod = chunk.get(sizes[s]);
 					if (prod != null) {
 						totDemand += prod.getSales(t); 
-						serviceLevel = cplex.sum(serviceLevelGT, z[t][i][s]);
+						serviceLevel = cplex.sum(serviceLevel, z[t][i][s]);
 						if (prod.getProductGroup().equals("General Toys")) { 
 							totDemandGT += prod.getSales(t); 
 							serviceLevelGT = cplex.sum(serviceLevelGT, z[t][i][s]);
@@ -375,6 +428,8 @@ public class Solver {
 		
 		IloNumExpr serviceLevelGT = cplex.constant(0);
 		IloNumExpr serviceLevelROT = cplex.constant(0);
+		IloNumExpr serviceLevel = cplex.constant(0);
+		
 		double totDemandGT = 0;
 		double totDemandROT = 0;
 		for (int t = 0; t < T; t++)	{
@@ -390,7 +445,8 @@ public class Solver {
 							System.out.println(prod.getChunk() + " " + prod.getSizeGroup() + " demand is: " + prod.getSales(t) + " sold is: " +(cplex.getValue(x[t][i][s][0])+ cplex.getValue(x[t][i][s][1])));
 						}
 						*/
-						
+						serviceLevel = cplex.sum(serviceLevel, z[t][i][s]);
+
 						if (prod.getProductGroup().equals("General Toys")) { 
 							totDemandGT += prod.getSales(t); 
 							serviceLevelGT = cplex.sum(serviceLevelGT, z[t][i][s]);
@@ -405,6 +461,7 @@ public class Solver {
 		}
 		//System.out.println(cplex.getValue(serviceLevelGT) + " " +  totDemandGT );
 		//System.out.println(cplex.getValue(serviceLevelROT) + " " + totDemandROT );
+		System.out.println((cplex.getValue(serviceLevel) / (totDemandGT + totDemandROT) >  0.98) +  " for overall the service level is:" + (cplex.getValue(serviceLevel) / (totDemandGT + totDemandROT)));
 
 		System.out.println((cplex.getValue(serviceLevelGT) / totDemandGT >  0.98) +  " for the general Toys the service level is:" + cplex.getValue(serviceLevelGT) / totDemandGT);
 		System.out.println((cplex.getValue(serviceLevelROT) / totDemandROT >  0.95)+ " for the Recreational and Outdoor Toys the service level is: :"+ cplex.getValue(serviceLevelROT)/ totDemandROT);
@@ -514,7 +571,12 @@ public class Solver {
 			System.out.println((cplex.getValue(serviceLevelGT) / totDemandGT >  0.98) +  " At time " + t+ " for the general Toys the service level is:" + cplex.getValue(serviceLevelGT) / totDemandGT );
 			System.out.println((cplex.getValue(serviceLevelROT) / totDemandROT >  0.95)+ " At time " + t+ " for the Recreational and Outdoor Toys the service level is: :"+ cplex.getValue(serviceLevelROT)/ totDemandROT);
 			
-		}	
+		}
+
+		
+		
 	}
+	
+	
 		
 }
