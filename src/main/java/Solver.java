@@ -149,38 +149,15 @@ public class Solver {
 		}
 		
 		//Add the service level constraints
-		//cplex = Solver.serviceLevelConstraint(T, sizes, cplex, z, data);
-		//cplex = Solver.serviceLevelConstraintWithOverall(T, sizes, cplex, z, data, 0.98);
+		cplex = Solver.serviceLevelConstraint(T, sizes, cplex, z, data);
 		
-		/*
-		cplex.setOut(null);
-		for (int j = 0; j < 1; j++) {
-			double overallServiceLevel = 0.983 + j * 0.3;
-			cplex = Solver.serviceLevelConstraintWithOverall(T, sizes, cplex, z, data, overallServiceLevel);
-			System.out.println("The solution is now solved for overall service level: " + overallServiceLevel);
-
-			cplex.solve();
-			if (cplex.getStatus() == IloCplex.Status.Optimal)
-			{
-				System.out.println("Found optimal solution!");
-				System.out.println("Objective = " + cplex.getObjValue());
-			
-				//capacityCheck(T, sizes, cplex, x, data);
-				serviceLevel(T, sizes, cplex, z, data);
-				
-			}
-			else
-			{
-				System.out.println("No optimal solution found");
-			}
-		}
-		*/
+		
 		// The last three parameters are nbr of steps, size of the steps, and value of first step. 
 		// So: 2, 0.003, 0.98 means it is solved for an overall service level greater then 0.98 and 0.983
-		solveForDifferentServiceLevels(T, sizes, cplex, z, data, 10, 0.001, 0.982);
+		//solveForDifferentServiceLevels(T, sizes, cplex, z, data, 10, 0.001, 0.982);
 		
 		// Export model
-		cplex.exportModel("Model.lp");
+		//cplex.exportModel("Model.lp");
 		
 		
 		// Solve the model.
