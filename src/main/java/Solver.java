@@ -25,14 +25,14 @@ public class Solver {
 	
 	public static void main(String[] args) throws FileNotFoundException
 	{		
+		// Define all the size groups
+		String[] sizes = {"XXXS", "XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"};
+		
 		//read data for year 2018
 		ArrayList<Integer> years = new ArrayList<Integer>(Arrays.asList(2018));
 		ArrayList<HashMap<String, HashMap<String, Product>>> dt = readData(new ArrayList<Integer>(Arrays.asList(2018)));
 
-		
-		// Define all the size groups
-		String[] sizes = {"XXXS", "XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"};
-		
+		//Try to build and solve the model.
 		try
 		{
 			solve(52, sizes, dt.get(0));
@@ -44,6 +44,11 @@ public class Solver {
 		}	
 	}
 	
+	/**
+	 * This method reads the data for the years given and returns them in format implemented by Gijs
+	 * @param years An arrayList with the years for which the data needs to be retrieved. 
+	 * @return The data
+	 */
 	public static ArrayList<HashMap<String, HashMap<String, Product>>> readData(ArrayList<Integer> years){
 		File data;
 		File relevanceScore;
@@ -149,75 +154,50 @@ public class Solver {
 		}
 		
 		//Add the service level constraints
-		cplex = Solver.serviceLevelConstraint(T, sizes, cplex, z, data);
+		cplex = Solver.serviceLevelConstraintPerCategorie(T, sizes, cplex, z, data);
 		
 		
 		// The last three parameters are nbr of steps, size of the steps, and value of first step. 
 		// So: 2, 0.003, 0.98 means it is solved for an overall service level greater then 0.98 and 0.983
-		//solveForDifferentServiceLevels(T, sizes, cplex, z, data, 10, 0.001, 0.982);
+		//solveForDifferentServiceLevels(T, sizes, cplex, z, data, 1, 0.0003, 0.9857);
+		
+		
+		/** This is the end of the model building part**/ 
 		
 		// Export model
 		//cplex.exportModel("Model.lp");
 		
 		
 		// Solve the model.
-
 		cplex.solve();
 
 		// Query the solution.
 		if (cplex.getStatus() == IloCplex.Status.Optimal)
 		{
+			//Below are some different options to analyze the solution
+			
 			System.out.println("Found optimal solution!");
 			System.out.println("Objective = " + cplex.getObjValue());
 			
-			
+			//	View the capacity per week
 			//capacityCheck(T, sizes, cplex, x, data);
+			
+			// View the service level per category over the full years
 			serviceLevel(T, sizes, cplex, z, data);
-			projectedOn2019(T, sizes, cplex, z, data, data);
-			//serviceLevelWeekly(T, sizes, cplex, x, data);
 			
+			//	View the service level per category per week. 
+			//  The last parameter is printAll. If true it prints for all weeks is false it only prints the weeks with service level <100.
+			serviceLevelWeekly(T, sizes, cplex, z, data, false);
+			
+			
+			//	View the results of 2018 projected on 2019
 			//ArrayList<HashMap<String, HashMap<String, Product>>> dt2019 = readData(new ArrayList<Integer>(Arrays.asList(2019)));
-			//sprojectedOn2019(T, sizes, cplex, z, data, dt2019.get(0));
+			//projectedOn2019(T, sizes, cplex, z, data, dt2019.get(0));
 			
 			
-			boolean writeSolutionToDucument = false;
-			if (writeSolutionToDucument) {
-				// This should write the data to an Excel file
-				File file = new File("C:\\Users\\gijsm\\Documents\\DOCUMENTEN\\School\\SeminarCaseStudy\\SolutionFiles\\");
-				
-				CustomDataWriter cdw = new CustomDataWriter(file);
-				try {
-					cdw.writeSolutionToExcelFile(cplex, y, z, data, "Solution_SatisfactionLevels");
-				} catch (UnknownObjectException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				} catch (IloException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			}
-
-			/*		
-			for (int t = 0; t < T; t++)	{
-				for (int i = 0; i < n; i ++) {
-					for (int s = 0; s < size; s++) {
-						HashMap<String, Product> chunk = data.get(chunkNames.get(i));
-						Product prod = chunk.get(sizes[s]);
-						if (prod != null) {
-							if (cplex.getValue(y[i]) <= 0.5) {
-								System.out.println("We store " + chunkNames.get(i) + " in small warehouse with amount " + Math.round(cplex.getValue(x[t][i][s][0])) + " of size " + sizes[s] + " in week " + t);
-							}
-							else {
-								System.out.println("We store " + chunkNames.get(i) + " in big warehouse with amount " + Math.round(cplex.getValue(x[t][i][s][1])) + " of size " + sizes[s] + " in week " + t);	
-							}
-						}
-					}
-				}
-			}
-			*/
+			//	Write the excel file to a excel file
+			//writeSolutionToDucument(cplex, z, y, data);
+			
 		}
 		else
 		{
@@ -225,14 +205,61 @@ public class Solver {
 		}
 	}
 	
-	public static void solveForDifferentServiceLevels(int T,String[] sizes, IloCplex cplex, IloNumVar[][][] z, 
+	/**
+	 * This method allows you to write the solution to an excel file. 
+	 * !! I, Floris, did not yet test the method, I copied the excising code into a method so should work. !!
+	 * @param cplex
+	 * @param z
+	 * @param y
+	 * @param data
+	 */
+	public static void writeSolutionToDucument(IloCplex cplex, IloNumVar[][][] z, IloNumVar[] y, HashMap<String, HashMap<String, Product>> data) {
+		// This should write the data to an Excel file
+		//File file = new File("C:\\Users\\gijsm\\Documents\\DOCUMENTEN\\School\\SeminarCaseStudy\\SolutionFiles\\");
+		
+		File file;
+		String os = System.getProperty("os.name").toLowerCase();
+		if (os.indexOf("win") >= 0) {
+			file = new File(".\\dataFiles\\");
+		}else {
+			file = new File("./dataFiles/");
+		}
+		
+		CustomDataWriter cdw = new CustomDataWriter(file);
+		try {
+			cdw.writeSolutionToExcelFile(cplex, y, z, data, "Solution_SatisfactionLevels");
+		} catch (UnknownObjectException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IloException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	/**
+	 * This method solves the problem with adding a stricter overall service level each time.
+	 * @param T Parameter passed on from the solve method.
+	 * @param sizes Parameter passed on from the solve method.
+	 * @param cplex Parameter passed on from the solve method.
+	 * @param z Parameter passed on from the solve method.
+	 * @param data Parameter passed on from the solve method.
+	 * @param nbrSteps amount of times the problem needs to be solved
+	 * @param sizeSteps The size of the increase of the overall service level between steps
+	 * @param startValue The first value of the overall service level. 
+	 * @throws IloException When a problem occurs. 
+	 */
+	public static void solveForDifferentServiceLevels(int T, String[] sizes, IloCplex cplex, IloNumVar[][][] z, 
 			HashMap<String, HashMap<String, Product>> data, 
 			int nbrSteps, double sizeSteps, double startValue) throws IloException {
 
 		cplex.setOut(null);
 		for (int j = 0; j < nbrSteps; j++) {
 			double overallServiceLevel = startValue + j * sizeSteps;
-			cplex = Solver.serviceLevelConstraintWithOverall(T, sizes, cplex, z, data, overallServiceLevel);
+			cplex = Solver.serviceLevelConstraintOverall(T, sizes, cplex, z, data, overallServiceLevel);
 			System.out.println("The solution is now solved for overall service level: " + overallServiceLevel);
 
 			cplex.solve();
@@ -252,16 +279,18 @@ public class Solver {
 		}
 	}
 	/**
-	 * This method adds the service level constraint to the model. 
-	 * by using a method the building of the model stays nice and tidy. 
-	 * @param T
-	 * @param sizes
-	 * @param cplex
-	 * @param x
-	 * @param data
-	 * @throws IloException
+	 * This method adds the service level constraint per category to the model. 
+	 * by using a method the building of the model stays nice and tidy.
+	 * As stated in the assignment the service level for General toys should be at least 98% and 
+	 * for Recreational and outdoor toys is must be at least 95%.
+	 * @param T The number of weeks we are solving the problem for
+	 * @param sizes An array with the different size groups
+	 * @param cplex The cplex object used to formulate the problem 
+	 * @param z The constraint is implemented using the z variables of the problem formulation.
+	 * @param data The data about the products.
+	 * @throws IloException When something goes wrong with the cplex. 
 	 */
-	public static IloCplex serviceLevelConstraint(int T,String[] sizes, IloCplex cplex, IloNumVar[][][] z, HashMap<String, HashMap<String, Product>> data) throws IloException {
+	public static IloCplex serviceLevelConstraintPerCategorie(int T,String[] sizes, IloCplex cplex, IloNumVar[][][] z, HashMap<String, HashMap<String, Product>> data) throws IloException {
 		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
 		int n = chunkNames.size();
 		int size = sizes.length;
@@ -301,27 +330,24 @@ public class Solver {
 	}
 	
 	/**
-	 * This method adds the service level constraint to the model. 
+	 * This method adds the general service level constraint to the model. 
 	 * When an additional parameter overallServiceLevel is passed on it also inserts a constraint regarding the overall service level.
 	 * by using a method the building of the model stays nice and tidy. 
-	 * @param T
-	 * @param sizes
-	 * @param cplex
-	 * @param x
-	 * @param data
-	 * @throws IloException
+	 * @param T The number of weeks we are solving the problem for
+	 * @param sizes An array with the different size groups
+	 * @param cplex The cplex object used to formulate the problem 
+	 * @param z The constraint is implemented using the z variables of the problem formulation.
+	 * @param data The data about the products.
+	 * @param overallServiceLevel What the minimum overall service level should be. 
+	 * @throws IloException When something goes wrong with the cplex. 
 	 */
-	public static IloCplex serviceLevelConstraintWithOverall(int T,String[] sizes, IloCplex cplex, IloNumVar[][][] z, HashMap<String, HashMap<String, Product>> data, double overallServiceLevel) throws IloException {
+	public static IloCplex serviceLevelConstraintOverall(int T,String[] sizes, IloCplex cplex, IloNumVar[][][] z, 
+			HashMap<String, HashMap<String, Product>> data, double overallServiceLevel) throws IloException {
 		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
 		int n = chunkNames.size();
 		int size = sizes.length;
 		
-		IloNumExpr serviceLevelGT = cplex.constant(0);
-		IloNumExpr serviceLevelROT = cplex.constant(0);
 		IloNumExpr serviceLevel = cplex.constant(0);
-
-		double totDemandGT = 0;
-		double totDemandROT = 0;
 		double totDemand = 0;
 		for (int t = 0; t < T; t++)	{
 			for (int i = 0; i < n; i ++) {
@@ -331,27 +357,12 @@ public class Solver {
 					if (prod != null) {
 						totDemand += prod.getSales(t); 
 						serviceLevel = cplex.sum(serviceLevel, z[t][i][s]);
-						if (prod.getProductGroup().equals("General Toys")) { 
-							totDemandGT += prod.getSales(t); 
-							serviceLevelGT = cplex.sum(serviceLevelGT, z[t][i][s]);
-
-						}else {
-							totDemandROT += prod.getSales(t);
-							serviceLevelROT = cplex.sum(serviceLevelROT, z[t][i][s]);
-						}
 					}
 				}
 			}
 		}
-		//System.out.println("This is the total for GT: " + totDemandGT);
-		//System.out.println("This is the total for ROT: " + totDemandROT);
-		//System.out.println("This is the total for all: " + (totDemandGT +totDemandROT));
-		IloNumExpr minimumGT = cplex.constant(totDemandGT * 0.98); 
-		IloNumExpr minimumROT = cplex.constant(totDemandROT * 0.95); 
 		IloNumExpr minimum = cplex.constant(totDemand * overallServiceLevel); 
 		cplex.addGe(serviceLevel, minimum, "Service Level constraint for all products");
-		cplex.addGe(serviceLevelGT, minimumGT, "Service Level constraint for General Toys");
-		cplex.addGe(serviceLevelROT, minimumROT, "Service Level constraint for Recreational and Outdoor Toys");
 		return cplex;
 	}
 	
@@ -514,7 +525,20 @@ public class Solver {
 	 * @param data
 	 * @throws IloException
 	 */
-	public static void serviceLevelWeekly(int T,String[] sizes, IloCplex cplex, IloNumVar[][][][] x, HashMap<String, HashMap<String, Product>> data ) throws IloException {
+	
+	
+	/**
+	 * This method prints the service level per week. 
+	 * @param T The number of weeks we are solving the problem for
+	 * @param sizes An array with the different size groups
+	 * @param cplex The cplex object used to formulate the problem 
+	 * @param z The constraint is implemented using the z variables of the problem formulation.
+	 * @param data The data about the products.
+	 * @param printAll A boolean, if true it prints all values if false it prints the weeks where not all demand is met
+	 * @throws IloException
+	 */
+	public static void serviceLevelWeekly(int T,String[] sizes, IloCplex cplex, IloNumVar[][][] z, HashMap<String, HashMap<String, Product>> data,
+			boolean printAll) throws IloException {
 		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
 		int n = chunkNames.size();
 		int size = sizes.length;
@@ -524,6 +548,7 @@ public class Solver {
 		for (int t = 0; t < T; t++)	{
 			IloNumExpr serviceLevelGT = cplex.constant(0);
 			IloNumExpr serviceLevelROT = cplex.constant(0);
+			IloNumExpr serviceLevel = cplex.constant(0);
 			double totDemandGT = 0;
 			double totDemandROT = 0;
 			for (int i = 0; i < n; i ++) {
@@ -531,29 +556,29 @@ public class Solver {
 				for (int s = 0; s < size; s++) {
 					Product prod = chunk.get(sizes[s]);
 					if (prod != null) {
+						serviceLevel = cplex.sum(serviceLevel, z[t][i][s]);
 
 						if (prod.getProductGroup().equals("General Toys")) { 
 							totDemandGT += prod.getSales(t); 
-							serviceLevelGT = cplex.sum(serviceLevelGT, x[t][i][s][0]);
-							serviceLevelGT = cplex.sum(serviceLevelGT, x[t][i][s][1]);
+							serviceLevelGT = cplex.sum(serviceLevelGT, z[t][i][s]);
 
 						}else {
 							totDemandROT += prod.getSales(t);
-							serviceLevelROT = cplex.sum(serviceLevelROT, x[t][i][s][0]);
-							serviceLevelROT = cplex.sum(serviceLevelROT, x[t][i][s][1]);
+							serviceLevelROT = cplex.sum(serviceLevelROT, z[t][i][s]);
 						}
 					}
 				}
 			}
-			System.out.println((cplex.getValue(serviceLevelGT) / totDemandGT >  0.98) +  " At time " + t+ " for the general Toys the service level is:" + cplex.getValue(serviceLevelGT) / totDemandGT );
-			System.out.println((cplex.getValue(serviceLevelROT) / totDemandROT >  0.95)+ " At time " + t+ " for the Recreational and Outdoor Toys the service level is: :"+ cplex.getValue(serviceLevelROT)/ totDemandROT);
+			if (printAll || (cplex.getValue(serviceLevel) / (totDemandGT + totDemandROT))  <  1) {
+				System.out.println((cplex.getValue(serviceLevelGT) / totDemandGT >  0.98) +  " At time " + t+ " for the general Toys the service level is:" + cplex.getValue(serviceLevelGT) / totDemandGT );
+				System.out.println((cplex.getValue(serviceLevelROT) / totDemandROT >  0.95)+ " At time " + t+ " for the Recreational and Outdoor Toys the service level is: :"+ cplex.getValue(serviceLevelROT)/ totDemandROT);
+				System.out.println((cplex.getValue(serviceLevel) / (totDemandGT + totDemandROT)  >  0.9999) +  " At time " + t+ " for the overall service level is:" + (cplex.getValue(serviceLevel) / (totDemandGT + totDemandROT)));
+				System.out.println();
+			}
 			
 		}
-
-		
-		
+			
 	}
-	
-	
+
 		
 }
