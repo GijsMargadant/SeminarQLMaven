@@ -27,6 +27,9 @@ public class Product {
 	private double unitStorageCost;
 	private double relevanceScore;
 	private int year;
+	
+	private boolean[] dataPresent;
+	private double z = 3.3; // z statistic for 99% confidence level
 
 	/**
 	 * This constructor initializes a product with all data that is not time dependent. Time dependent
@@ -58,8 +61,182 @@ public class Product {
 			weeklySales[i] = 0;
 			weeklyAverageM3[i] = 0.0;
 			weeklyAveragePrice[i] = 0.0;
+			dataPresent[i] = false;
 		}
 	}
+	
+	/**
+	 * This method cleans al the time series data. It does so by first calculating upper and lower bounds
+	 * based on mu +/- 3.3*sigma. If a value falls outside this interval, it is removed. This procedure is
+	 * repeated until no more data points fall outside the 99% confidence interval. Finally, all removed
+	 * values are set equal to the mean of the time series.
+	 */
+	public void cleanTimeSeriesData() {
+		cleanSales();
+		cleanVolume();
+		cleanPrices();
+	}
+	
+	private void cleanSales() {
+		for(int i = 0; i < dataPresent.length; i++) {
+			if(dataPresent[i] && weeklySales[i] < 0) {
+				weeklySales[i] = 0;
+			}
+		}
+		
+		double mean = mean(weeklySales);
+		for(int i = 0; i < dataPresent.length; i++) {
+			if(dataPresent[i] && weeklySales[i] == 0) {
+				weeklySales[i] = (int) mean;
+			}
+		}
+	}
+	
+	
+	private void cleanVolume() {
+		boolean clean = false;
+		while(!clean) {
+			// Calculate mean and stdev
+			double mean = mean(weeklyAverageM3);
+			double stdev = stdev(weeklyAverageM3, mean);
+			double LB = Math.max(mean - z*stdev, 0.0);
+			double UB = mean + z*stdev;
+			
+			// Remove values outside bounds
+			// Use open bounds, so (LB, UB) instead of [LB, UB]
+			boolean modified = false;
+			for(int i = 0; i < dataPresent.length; i++) {
+				if(dataPresent[i] && !(weeklyAverageM3[i] > LB || weeklyAverageM3[i] < UB)) {
+					weeklyAverageM3[i] = 0;
+					modified = true;
+				}
+			}
+			
+			// If no data has been removed, set all removed data equal to the mean
+			if(!modified) {
+				for(int i = 0; i < dataPresent.length; i++) {
+					if(dataPresent[i] && weeklyAverageM3[i] == 0) {
+						weeklyAverageM3[i] = mean;
+						modified = true;
+					}
+				}
+				clean = true;
+			}
+			
+		}
+	}
+	
+	
+	private void cleanPrices() {
+		boolean clean = false;
+		while(!clean) {
+			// Calculate mean and stdev
+			double mean = mean(weeklyAveragePrice);
+			double stdev = stdev(weeklyAveragePrice, mean);
+			double LB = Math.max(mean - z*stdev, 0.0);
+			double UB = mean + z*stdev;
+			
+			// Remove values outside bounds
+			// Use open bounds, so (LB, UB) instead of [LB, UB]
+			boolean modified = false;
+			for(int i = 0; i < dataPresent.length; i++) {
+				if(dataPresent[i] && !(weeklyAveragePrice[i] > LB || weeklyAveragePrice[i] < UB)) {
+					weeklyAveragePrice[i] = 0;
+					modified = true;
+				}
+			}
+			
+			// If no data has been removed, set all removed data equal to the mean
+			if(!modified) {
+				for(int i = 0; i < dataPresent.length; i++) {
+					if(dataPresent[i] && weeklyAveragePrice[i] == 0) {
+						weeklyAveragePrice[i] = mean;
+						modified = true;
+					}
+				}
+				clean = true;
+			}
+			
+		}
+	}
+	
+	
+	/**
+	 * This method calculate the mean of an integer array
+	 * @param arr
+	 * @return
+	 */
+	private double mean(int[] arr) {
+		double mean = 0.0;
+		int n = 0;
+		for(int i = 0; i < dataPresent.length; i++) {
+			if(dataPresent[i] && arr[i] > 0) {
+				mean += arr[i];
+				n++;
+			}
+		}
+		mean = mean / (double) n;
+		return mean;
+	}
+	
+	
+	/**
+	 * This method calculate the mean of a double array
+	 * @param arr
+	 * @return
+	 */
+	private double mean(double[] arr) {
+		double mean = 0.0;
+		int n = 0;
+		for(int i = 0; i < dataPresent.length; i++) {
+			if(dataPresent[i] && arr[i] > 0) {
+				mean += arr[i];
+				n++;
+			}
+		}
+		mean = mean / (double) n;
+		return mean;
+	}
+	
+	/**
+	 * This method calculates the standard deviation for an integer array
+	 * @param arr
+	 * @param mean
+	 * @return
+	 */
+	private double stdev(int[] arr, double mean) {
+		double stdev = 0.0;
+		int n = 0;
+		for(int i = 0; i < dataPresent.length; i++) {
+			if(dataPresent[i] && arr[i] > 0) {
+				stdev += Math.pow((double)(arr[i] - mean), 2.0);
+				n++;
+			}
+		}
+		stdev = Math.sqrt(stdev / (double) (n - 1));
+		return stdev;
+	}
+	
+	/**
+	 * This method calculates the standard deviation for a double array
+	 * @param arr
+	 * @param mean
+	 * @return
+	 */
+	private double stdev(double[] arr, double mean) {
+		double stdev = 0.0;
+		int n = 0;
+		for(int i = 0; i < dataPresent.length; i++) {
+			if(dataPresent[i] && arr[i] > 0) {
+				stdev += Math.pow((double)(arr[i] - mean), 2.0);
+				n++;
+			}
+		}
+		stdev = Math.sqrt(stdev / (double) (n - 1));
+		return stdev;
+	}
+
+	
 	
 	/**
 	 * This method sets the qty of sales for a certain week
@@ -68,6 +245,7 @@ public class Product {
 	 */
 	public void addSale(int week, int qty) {
 		weeklySales[week - 1] = qty;
+		dataPresent[week - 1] = true;
 	}
 	
 	/**
@@ -77,6 +255,7 @@ public class Product {
 	 */
 	public void addAverageM3(int week, double volume) {
 		weeklyAverageM3[week - 1] = volume; 
+		dataPresent[week - 1] = true;
 	}
 	
 	/**
@@ -86,6 +265,7 @@ public class Product {
 	 */
 	public void addAveragePrice(int week, double price) {
 		weeklyAveragePrice[week - 1] = price;
+		dataPresent[week - 1] = true;
 	}
 	
 	/**
@@ -242,6 +422,4 @@ public class Product {
 	public void setProductGroup(String productGroup) {
 		this.productGroup = productGroup;
 	}
-	
-	
 }

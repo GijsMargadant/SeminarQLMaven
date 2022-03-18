@@ -4,6 +4,8 @@ import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import javax.swing.plaf.synth.SynthOptionPaneUI;
+
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.Row;
@@ -44,8 +46,17 @@ public class CustomDataReader {
 			ArrayList<Integer> years = new ArrayList<Integer>();
 			years.add(2018);
 			years.add(2019);
-			cdm.readData(years);
+			ArrayList<HashMap<String, HashMap<String, Product>>> result = cdm.readData(years);
 			
+			int year = 0;
+			for(HashMap<String, HashMap<String, Product>> yearlyData : result) {
+				int totalProducts = 0;
+				for(String chunk : yearlyData.keySet()) {
+					totalProducts += yearlyData.get(chunk).keySet().size();
+				}
+				System.out.println("Total products in year " + years.get(year) + ": " + totalProducts);
+				year++;
+			}
 			
 			
 		} catch (FileNotFoundException e) {
