@@ -267,6 +267,17 @@ public class CustomDataReader {
 			}
 			i++;
 		}
+		
+		// This cleans the data in a more sophisticated way. Can be disabled without any problems
+		for(HashMap<String, HashMap<String, Product>> year : result) {
+			for(HashMap<String, Product> chunk : year.values()) {
+				for(Product product : chunk.values()) {
+					product.cleanTimeSeriesData();
+				}
+			}
+		}
+		
+		
 		for(int j = 0; j < years.size(); j++) {
 			System.out.println("Data size for year " + years.get(j) + ": " + result.get(j).size() + " chunks");
 		}
