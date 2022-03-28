@@ -33,10 +33,11 @@ public class Solver {
 		ArrayList<HashMap<String, HashMap<String, Product>>> dt = readData(new ArrayList<Integer>(Arrays.asList(2018)));
 
 		//Try to build and solve the model.
+		
 		try
 		{
 			//solve(52, sizes, dt.get(0));
-			//solveForSubperiod(new int[]{0,52}, sizes, dt.get(0));
+//			solveForSubperiod(new int[]{0,52}, sizes, dt.get(0));
 			solveForSubperiod(new int[]{45,48}, sizes, dt.get(0));
 		}
 		catch (IloException e)
@@ -213,11 +214,12 @@ public class Solver {
 	{
 		// Create the model.
 		IloCplex cplex = new IloCplex ();
-		
-		int maxDemandProduct = 60012 +1 ;
+		cplex.setParam(IloCplex.Param.MIP.Tolerances.MIPGap, 0.00001);
 
-		double cap0 = 3000*15/100;
-		double cap1 = 15000*15/100;
+		int maxDemandProduct = 60012;
+
+		//double cap0 = 3000*15/100;
+		//double cap1 = 15000*15/100;
 		
 		int size = sizes.length;
 		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
@@ -271,54 +273,36 @@ public class Solver {
 		}
 		cplex.addMaximize(objExpr);
 		
-		/*
-		for (int t = T[0]; t < T[1]; t++) {
-			IloNumExpr capacity0 = cplex.constant(0);
-			IloNumExpr capacity1 = cplex.constant(0);
-			for (int i = 0; i < n; i ++) {
-				HashMap<String, Product> chunk = data.get(chunkNames.get(i));
-				for (int s = 0; s < size; s++) {
-					Product prod = chunk.get(sizes[s]);
-					if (prod != null) {
-						capacity0 = cplex.sum(capacity0, cplex.prod(prod.getAverageM3(t), x[t][i][s][0]));
-						capacity1 = cplex.sum(capacity1, cplex.prod(prod.getAverageM3(t), x[t][i][s][1]));
-					}
-				}
-			}
-			cplex.addLe(capacity0, cap0, "Capacity constraint for small warehouse");
-			cplex.addLe(capacity1, cap1, "Capacity constraint for big warehouse");
-		}
-		*/
 		
 		
 		//Add capacity constraint for small and big warehouse
-		//cplex = Solver.addCapacityConstraint(T, sizes, cplex, x, data, 0.13, 0.13);
+		cplex = Solver.addCapacityConstraint(T, sizes, cplex, x, data, 0.15, 0.15);
 		
-		
+		//Add relevance score constraint
+//		cplex = Solver.addRelevanceScoreConstraint(T, sizes, cplex, z, data, 0.53);
+//		cplex = Solver.addRelevanceScoreConstraintSum(T, sizes, cplex, z, data, 0.925);
 		
 		//Add the service level constraints
-		//cplex = Solver.serviceLevelConstraintPerCategorie(T, sizes, cplex, z, data);
-		//cplex = Solver.serviceLevelConstraintPerCategorie(T, sizes, cplex, z, data);
-		
+//		cplex = Solver.serviceLevelConstraintPerCategorie(T, sizes, cplex, z, data);
 		cplex = Solver.serviceLevelConstraintPerCategoriePeekWeeks(T, sizes, cplex, z, data);
+//		cplex = Solver.serviceLevelConstraintOverall(T, sizes, cplex, z, data, 0.9856);
 		
-		
-		
-		//cplex = Solver.serviceLevelConstraintOverall(T, sizes, cplex, z, data, 0.9);
 		
 		
 		// The last three parameters are nbr of steps, size of the steps, and value of first step. 
 		// So: 2, 0.003, 0.98 means it is solved for an overall service level greater then 0.98 and 0.983
-		//solveForDifferentServiceLevels(T, sizes, cplex, z, data, 30, 0.001, 0.93);
+//		solveForDifferentServiceLevels(T, sizes, cplex, z, data, 30, 0.001, 0.925, false);
 		
-		Solver.solveForDifferentCapcityLevels(T, sizes, cplex, x, data, 40, 0.001, 0.20);
+		//Use to solve for different relevance scores
+//		solveForDifferentServiceLevels(T, sizes, cplex, z, data, 50, 0.001, 0.91, true);
+		
+		//Solver.solveForDifferentCapcityLevels(T, sizes, cplex, x, data, 40, 0.001, 0.20);
 
 		
 		/** This is the end of the model building part**/ 
 		
 		// Export model
 		//cplex.exportModel("Model.lp");
-		
 		
 		// Solve the model.
 		cplex.solve();
@@ -330,12 +314,22 @@ public class Solver {
 			
 			System.out.println("Found optimal solution!");
 			System.out.println("Objective = " + cplex.getObjValue());
+			System.out.println(Math.round(cplex.getObjValue()));
+
 			
 			//	View the capacity per week
-			capacityCheck(T, sizes, cplex, x, data);
+			//capacityCheck(T, sizes, cplex, x, data);
+			
+			// View the service level per category over the full years
+//			getRevenue(T, sizes, cplex, z, data);
 			
 			// View the service level per category over the full years
 			serviceLevel(T, sizes, cplex, z, data);
+			
+			
+			// View the relavance score for each week and overall the weeks
+//			relevanceScore(T, sizes, cplex, z, data);
+
 			
 			//	View the service level per category per week. 
 			//  The last parameter is printAll. If true it prints for all weeks is false it only prints the weeks with service level <100.
@@ -356,6 +350,7 @@ public class Solver {
 			System.out.println("No optimal solution found");
 		}
 	}
+	
 	
 	/**
 	 * This method allows you to write the solution to an excel file. 
@@ -727,7 +722,49 @@ public class Solver {
 	}
 	
 	/** Methods with start as parameter **/ 
+	/**
+	 * This method returns the service level of a given solution. 
+	 * @param T
+	 * @param sizes
+	 * @param cplex
+	 * @param x
+	 * @param data
+	 * @throws IloException
+	 */
+	public static void getRevenue(int[]  T,  String[] sizes, IloCplex cplex, IloNumVar[][][] z, HashMap<String, HashMap<String, Product>> data) throws IloException {
+		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
+		int n = chunkNames.size();
+		int size = sizes.length;
+		
+		IloNumExpr serviceLevel = cplex.constant(0);
+		
+		double revenue = 0;
+
+		for (int t = T[0]; t < T[1]; t++) {
+			for (int i = 0; i < n; i ++) {
+				HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+				for (int s = 0; s < size; s++) {
+					Product prod = chunk.get(sizes[s]);
+					if (prod != null) {
+						
+						/*
+						 * To see which demand is lost. I used for debugging. 
+						if (prod.getSales(t) > Math.round(cplex.getValue(x[t][i][s][0])+ cplex.getValue(x[t][i][s][1]))) {
+							System.out.println(prod.getChunk() + " " + prod.getSizeGroup() + " demand is: " + prod.getSales(t) + " sold is: " +(cplex.getValue(x[t][i][s][0])+ cplex.getValue(x[t][i][s][1])));
+						}
+						*/
+
+						serviceLevel = cplex.sum(serviceLevel, cplex.prod(z[t][i][s], prod.getAveragePrice(t)));
+						revenue += cplex.getValue(z[t][i][s]) * prod.getAveragePrice(t);
+					}
+				}
+			}
+		}
+		System.out.println(Math.round(cplex.getValue(serviceLevel))+  " The revenue using cplex" );
+		System.out.println(Math.round(revenue)+  " The revenue using get value" );
+
 	
+	}
 	
 	/**
 	 * This method returns the service level of a given solution. 
@@ -790,6 +827,191 @@ public class Solver {
 			System.out.println((cplex.getValue(serviceLevelROT) / totDemandROT >  0.95)+ " for the Recreational and Outdoor Toys the service level for the whole year is: :"+ (cplex.getValue(serviceLevelROT)+ 3141314)/ (totDemandROT+ 3141314));
 			
 		}
+		
+		
+	}
+	public static IloCplex addRelevanceScoreConstraintSum(int[]  T,  String[] sizes, IloCplex cplex, IloNumVar[][][] z, HashMap<String, HashMap<String, Product>> data
+			,double relevancePercentage) throws IloException {
+		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
+		int n = chunkNames.size();
+		int size = sizes.length;
+		
+		
+		for (int t = T[0]; t < T[1]; t++) {
+			IloNumExpr relevanceLevel = cplex.constant(0);
+			double relevanceLevelTot = 0;
+
+			for (int i = 0; i < n; i ++) {
+				HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+				for (int s = 0; s < size; s++) {
+					Product prod = chunk.get(sizes[s]);
+					if (prod != null) {
+						
+						/*
+						 * To see which demand is lost. I used for debugging. 
+						if (prod.getSales(t) > Math.round(cplex.getValue(x[t][i][s][0])+ cplex.getValue(x[t][i][s][1]))) {
+							System.out.println(prod.getChunk() + " " + prod.getSizeGroup() + " demand is: " + prod.getSales(t) + " sold is: " +(cplex.getValue(x[t][i][s][0])+ cplex.getValue(x[t][i][s][1])));
+						}
+						*/
+						
+						relevanceLevel = cplex.sum(relevanceLevel, cplex.prod(z[t][i][s], prod.getRelevanceScore()));
+						relevanceLevelTot += prod.getRelevanceScore() * prod.getSales(t);
+						
+					}
+				}
+			}
+			cplex.addGe(relevanceLevel, relevanceLevelTot * relevancePercentage, "Capacity constraint for small warehouse");
+		}
+
+		return cplex;
+	}
+	
+	
+	public static IloCplex addRelevanceScoreConstraint(int[]  T,  String[] sizes, IloCplex cplex, IloNumVar[][][] z, HashMap<String, HashMap<String, Product>> data
+			,double relevancePercentage) throws IloException {
+		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
+		int n = chunkNames.size();
+		int size = sizes.length;
+		
+		for (int t = T[0]; t < T[1]; t++) {
+			
+			IloNumExpr relevanceLevel = cplex.constant(0);
+			IloNumExpr relevanceLevelTot = cplex.constant(0);
+
+
+			for (int i = 0; i < n; i ++) {
+				HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+				for (int s = 0; s < size; s++) {
+					Product prod = chunk.get(sizes[s]);
+					if (prod != null) {
+						
+						/*
+						 * To see which demand is lost. I used for debugging. 
+						if (prod.getSales(t) > Math.round(cplex.getValue(x[t][i][s][0])+ cplex.getValue(x[t][i][s][1]))) {
+							System.out.println(prod.getChunk() + " " + prod.getSizeGroup() + " demand is: " + prod.getSales(t) + " sold is: " +(cplex.getValue(x[t][i][s][0])+ cplex.getValue(x[t][i][s][1])));
+						}
+						*/
+						
+						relevanceLevel = cplex.sum(relevanceLevel, cplex.prod(z[t][i][s], prod.getRelevanceScore()));
+//						relevanceLevelTot += prod.getRelevanceScore() * prod.getSales(t);
+						relevanceLevelTot = cplex.sum(relevanceLevelTot, z[t][i][s]);
+
+					}
+				}
+
+			}
+			cplex.addGe(relevanceLevel, cplex.prod(relevanceLevelTot, relevancePercentage), "Capacity constraint for small warehouse");
+
+		}
+		return cplex;
+	}
+	
+	public static void relevanceScore(int[]  T,  String[] sizes, IloCplex cplex, IloNumVar[][][] z, HashMap<String, HashMap<String, Product>> data) throws IloException {
+		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
+		int n = chunkNames.size();
+		int size = sizes.length;
+		
+		double totRelevance = 0;
+		double lostRelevance = 0;
+
+		double totLost = 0;
+		double totDemand = 0;
+		
+		double relevanceChunks = 0;
+		double relevanceChunkstot = 0;
+		
+
+
+		for (int t = T[0]; t < T[1]; t++) {
+			double totRelevance2 = 0;
+			double lostRelevance2 = 0;
+
+			double totLost2 = 0;
+			double totDemand2 = 0;
+			
+			double relevanceChunks2 = 0;
+			double relevanceChunkstot2 = 0;
+			IloNumExpr relevanceLevel = cplex.constant(0);
+			IloNumExpr relevanceLevelTot = cplex.constant(0);
+
+			for (int i = 0; i < n; i ++) {
+				HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+				for (int s = 0; s < size; s++) {
+					Product prod = chunk.get(sizes[s]);
+					if (prod != null) {
+						
+						/*
+						 * To see which demand is lost. I used for debugging. 
+						if (prod.getSales(t) > Math.round(cplex.getValue(x[t][i][s][0])+ cplex.getValue(x[t][i][s][1]))) {
+							System.out.println(prod.getChunk() + " " + prod.getSizeGroup() + " demand is: " + prod.getSales(t) + " sold is: " +(cplex.getValue(x[t][i][s][0])+ cplex.getValue(x[t][i][s][1])));
+						}
+						*/
+						
+						relevanceLevel = cplex.sum(relevanceLevel, cplex.prod(z[t][i][s], prod.getRelevanceScore()));
+						relevanceLevelTot = cplex.sum(relevanceLevelTot, z[t][i][s]);
+
+						
+						lostRelevance += Math.max(0, prod.getSales(t) - cplex.getValue(z[t][i][s])) * prod.getRelevanceScore();
+						totLost += Math.max(0, prod.getSales(t) - cplex.getValue(z[t][i][s]));
+						
+						totRelevance += cplex.getValue(z[t][i][s]) * prod.getRelevanceScore();
+						totDemand += prod.getSales(t) * prod.getRelevanceScore(); 
+//						totDemand += prod.getSales(t) ; 
+						
+						lostRelevance2 += Math.max(0, prod.getSales(t) - cplex.getValue(z[t][i][s])) * prod.getRelevanceScore();
+						totLost2 += Math.max(0, prod.getSales(t) - cplex.getValue(z[t][i][s]));
+						
+						totRelevance2 += cplex.getValue(z[t][i][s]) * prod.getRelevanceScore();
+						totDemand2 += prod.getSales(t) * prod.getRelevanceScore(); 
+//						totDemand2 += prod.getSales(t); 
+						
+						relevanceChunkstot += prod.getRelevanceScore();
+						relevanceChunkstot2 += prod.getRelevanceScore();
+
+						
+						if (cplex.getValue(z[t][i][s]) > 0) {
+							relevanceChunks += prod.getRelevanceScore();
+							relevanceChunks2 += prod.getRelevanceScore();
+						}
+					}
+				}
+			}
+			System.out.println("For time: "+ t);
+			System.out.println("The total relavance score is: "+ totRelevance2);
+			System.out.println("The total relavance score is: "+ totDemand2);
+			System.out.println("The avarage relavance score is: "+ (totRelevance2/ totDemand2));
+			//System.out.println("The lost relavance score is: "+ lostRelevance2);
+			//System.out.println("The lost demand is: "+ totLost2);
+			//System.out.println("The relavance score based on 1 minus lost is: "+ (1- (lostRelevance2/totLost2)));
+			//System.out.println("The relavanceChunks: "+ relevanceChunks2);
+			//System.out.println("The relavanceChunks total: "+ relevanceChunkstot2);
+			
+			//System.out.println(Math.round(relevanceChunks2));
+//			System.out.println(Math.round(totRelevance2) +" "+ Math.round(totDemand2) +" "+ Math.round(totRelevance2 * 100/ totDemand2));
+//			System.out.println("The relevance Level is: "+ cplex.getValue(relevanceLevel));
+//			System.out.println("The relevance Level is: "+ cplex.getValue(relevanceLevelTot));
+//			System.out.println("The relevance Level is: "+ cplex.getValue(relevanceLevel)/cplex.getValue(relevanceLevelTot));
+
+
+
+		}
+
+//		System.out.println("The total relavance score is: "+ totRelevance);
+//		System.out.println("The total relavance score is: "+ totDemand);
+//		System.out.println("The avarage relavance score is: "+ (totRelevance/ totDemand));
+//		System.out.println("The lost relavance score is: "+ lostRelevance);
+//		System.out.println("The lost demand is: "+ totLost);
+//		System.out.println("The relavance score based on 1 minus lost is: "+ (1- (lostRelevance/totLost)));
+		
+		System.out.println("The relavanceChunks: "+ relevanceChunks);
+		System.out.println("The relavanceChunks total: "+ relevanceChunkstot);
+		System.out.println("The relavanceChunks total per week :"+ relevanceChunkstot /52);
+
+
+		System.out.println();
+		System.out.println();
+		System.out.println();
+		System.out.println();
 		
 		
 	}
@@ -1018,12 +1240,19 @@ public class Solver {
 	 */
 	public static void solveForDifferentServiceLevels(int[] T, String[] sizes, IloCplex cplex, IloNumVar[][][] z, 
 			HashMap<String, HashMap<String, Product>> data, 
-			int nbrSteps, double sizeSteps, double startValue) throws IloException {
+			int nbrSteps, double sizeSteps, double startValue,
+			boolean useForRelevanceLevel) throws IloException {
 
 		cplex.setOut(null);
 		for (int j = 0; j < nbrSteps; j++) {
 			double overallServiceLevel = startValue + j * sizeSteps;
-			cplex = Solver.serviceLevelConstraintOverall(T, sizes, cplex, z, data, overallServiceLevel);
+			if (useForRelevanceLevel) {
+				cplex = Solver.addRelevanceScoreConstraintSum(T, sizes, cplex, z, data, overallServiceLevel);
+//				cplex = Solver.addRelevanceScoreConstraint(T, sizes, cplex, z, data, overallServiceLevel);
+
+			}else{
+				cplex = Solver.serviceLevelConstraintOverall(T, sizes, cplex, z, data, overallServiceLevel);
+			}
 			//System.out.println("The solution is now solved for overall service level: " + overallServiceLevel);
 
 			cplex.solve();
@@ -1032,6 +1261,7 @@ public class Solver {
 				//System.out.println("Found optimal solution!");
 				//System.out.println("Objective = " + Math.round(cplex.getObjValue()));
 				System.out.println(Math.round(cplex.getObjValue()));
+//				System.out.println(Math.round(overallServiceLevel* 1000) + " "+ Math.round(cplex.getObjValue()));
 			
 				//capacityCheck(T, sizes, cplex, x, data);
 				//serviceLevel(T, sizes, cplex, z, data);
