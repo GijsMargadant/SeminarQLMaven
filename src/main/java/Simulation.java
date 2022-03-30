@@ -1,6 +1,7 @@
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Random;
 
 import ilog.concert.IloException;
 import ilog.concert.IloNumExpr;
@@ -31,16 +32,23 @@ public class Simulation {
 		System.out.println(dt.get(0).get(chunkNames.get(0)).toString());
 		
 		z[0][0][3] = 40;
-//		demand[0][0][0] = 2;
+		demand[0][0][3] = 60;
 		
 //		simulationMain(T, sizes, dt.get(0), z, demand);
 		
+        Random ran = new Random(1234);
+
+		//Adding a bit of randomness to the demand
 		for (int i = 0; i < n; i ++) {
 			HashMap<String, Product> chunk = dt.get(0).get(chunkNames.get(i));
 			for (int s = 0; s < size; s++) {
 				Product prod = chunk.get(sizes[s]);
 				if (prod != null) {
-					demand[0][i][s] = prod.getSales(0);
+					demand[0][i][s] = (int) (prod.getSales(0) + Math.round( Math.sqrt(prod.getSales(0)) * ran.nextGaussian()));
+					if (demand[0][i][s] < 0 ) {
+						demand[0][i][s] = 0;
+					}
+					z[0][i][s] = prod.getSales(0);
 				}
 			}
 		}
@@ -66,6 +74,9 @@ public class Simulation {
 		//Aggregate variables
 		int orders = 0; 
 		
+		int totalOrdered = 0;
+		int totalThrewAway = 0;
+		
 		double holdingCost = 0; //The total holding cost
 		double revenue = 0; //Revenue of the time period
 		double revenueTheoretical = 0; //The maximum revenue that could have been made
@@ -90,6 +101,11 @@ public class Simulation {
 							//We need to place an order
 							orderForChunk = true;
 							System.out.println("we ordered "+ ( -storage[t][i][s] + z[t][i][s])+" at time  "+ t+" for chunk "+ chunkNames.get(i)+"of size "+ sizes[s]);		
+							totalOrdered += z[t][i][s] - storage[t][i][s];
+							storage[t][i][s]  = z[t][i][s];
+						}else if(storage[t][i][s] > z[t][i][s]) {
+							System.out.println("we threw away  "+ ( storage[t][i][s] - z[t][i][s])+" at time  "+ t+" for chunk "+ chunkNames.get(i)+"of size "+ sizes[s]);		
+							totalThrewAway += storage[t][i][s] -z[t][i][s] ;
 							storage[t][i][s]  = z[t][i][s];
 						}
 					}
@@ -150,15 +166,19 @@ public class Simulation {
 				}
 			}
 		}
+		
+		
+		//Print interesting information on the simulation
 		System.out.println("The amount of orders is: " + orders + " so ordering cost is: " + orders * 10 );	
 		System.out.println("The revenue for this period is: " + revenue);	
 		System.out.println("The holding cost for this period is: " + holdingCost);	
 		System.out.println("The profit for this period is: " + (revenue - holdingCost));
 		System.out.println();
 
+		System.out.println("There are " + totalOrdered + " products ordered and " + totalThrewAway+ " products thown away");	
 		System.out.println("The amount of products sold is: " + productsSold);	
 		System.out.println("The amount of products demanded is: " + totalDemand);	
-		System.out.println("The service level is: " + (productsSold/totalDemand));
+		System.out.println("The service level is: " + ((double)productsSold / totalDemand ));
 		System.out.println();
 
 
