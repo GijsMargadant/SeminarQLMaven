@@ -9,33 +9,163 @@ import ilog.cplex.IloCplex;
 
 public class Simulation {
 	
-	public static void main(String args[]) {
+	public static void main(String args[]) throws IloException {
 		
 		// Define all the size groups
 		String[] sizes = {"XXXS", "XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"};
 				
 		//read data for year 2018
-		ArrayList<Integer> years = new ArrayList<Integer>(Arrays.asList(2018, 2019,2020));
+//		ArrayList<Integer> years = new ArrayList<Integer>(Arrays.asList(2018, 2019,2020));
+		ArrayList<Integer> years = new ArrayList<Integer>(Arrays.asList(2020));
 		ArrayList<HashMap<String, HashMap<String, Product>>> dt = Solver.readData(years);
+		
+		int[] T = new int[] {0,2};
+		
+		int size = sizes.length;
+		ArrayList<String> chunkNames = new ArrayList<String>(dt.get(0).keySet());
+		int n = chunkNames.size();
+		int[][][] z = new int[T[1]][n][size];
+		int[][][] demand = new int[T[1]][n][size];
+		
+		System.out.println(chunkNames.get(0));
+		System.out.println(dt.get(0).get(chunkNames.get(0)).toString());
+		
+		z[0][0][3] = 40;
+//		demand[0][0][0] = 2;
+		
+//		simulationMain(T, sizes, dt.get(0), z, demand);
+		
+		for (int i = 0; i < n; i ++) {
+			HashMap<String, Product> chunk = dt.get(0).get(chunkNames.get(i));
+			for (int s = 0; s < size; s++) {
+				Product prod = chunk.get(sizes[s]);
+				if (prod != null) {
+					demand[0][i][s] = prod.getSales(0);
+				}
+			}
+		}
+		simulationMain(T, sizes, dt.get(0), z, demand);
+
 		
 	}
 	
-	public void simulationMain(int[] T, String[] sizes,
-			ForecastDemand forecastDemand, SimulateDemand simulateDemand,
-			ArrayList<HashMap<String, HashMap<String, Product>>> data) throws IloException {
+	public static void simulationMain(int[] T, String[] sizes,
+			HashMap<String, HashMap<String, Product>> data,
+			int[][][] z, int[][][] demand) throws IloException {
+		
+		int size = sizes.length;
+		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
+		int n = chunkNames.size();
+		
+		int[][][] storage = new int[T[1]][n][size];
+		//for every week
+			//get ordering up to level off products
+			//Calculate demand for that week per product
+			//update some stats
+		
+		//Aggregate variables
+		int orders = 0; 
+		
+		double holdingCost = 0; //The total holding cost
+		double revenue = 0; //Revenue of the time period
+		double revenueTheoretical = 0; //The maximum revenue that could have been made
+		double relevanceSoldProducts = 0; // The total relevance score of all the products sold
+		double relevanceAllProducts = 0;	// the total relevance score of all products demanded.
+		int productsSold = 0; //The amount of products sold
+		int totalDemand = 0; // the total amount of products demanded.
 		
 		
-		
-		
-		//Get ordering level
-		
-		//Get simulated demand
-		
-		//Calculate the products remaining
-		
-		//Calculate the stats of week
-		
+		for (int t = T[0]; t < T[1]; t++) {
+			
+			/** Ordering the new products */
+			
+			for (int i = 0; i < n; i ++) {
+				HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+				boolean orderForChunk = false; //Flag to keep track if an order was placed for this chunk
+				for (int s = 0; s < size; s++) {
+					Product prod = chunk.get(sizes[s]);
+					
+					if (prod != null) {
+						if (storage[t][i][s] < z[t][i][s]) {
+							//We need to place an order
+							orderForChunk = true;
+							System.out.println("we ordered "+ ( -storage[t][i][s] + z[t][i][s])+" at time  "+ t+" for chunk "+ chunkNames.get(i)+"of size "+ sizes[s]);		
+							storage[t][i][s]  = z[t][i][s];
+						}
+					}
+				}
+				//Check if an order is placed if so add to the total amount of orders for ordering cost.
+				if (orderForChunk) {
+					orders ++;
+				}
+			}
+			
+			/** Selling products */
+			for (int i = 0; i < n; i ++) {
+				HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+				for (int s = 0; s < size; s++) {
+					Product prod = chunk.get(sizes[s]);
+					if (prod != null) {
+						if (demand[t][i][s] <= storage[t][i][s]) {
+							//Update revenue
+							revenue += prod.getAveragePrice(t) * demand[t][i][s];
+							revenueTheoretical += prod.getAveragePrice(t) * demand[t][i][s];
+							//Update relevance score
+							relevanceSoldProducts += prod.getRelevanceScore() * demand[t][i][s];
+							relevanceAllProducts += prod.getRelevanceScore() * demand[t][i][s];
+							// update amount of products
+							productsSold += demand[t][i][s];
+							totalDemand += demand[t][i][s];
+							
+							//Update the amount in storage
+							storage[t][i][s] -= demand[t][i][s];
+						}else {
+							//Update revenue
+							revenue += prod.getAveragePrice(t) * storage[t][i][s];
+							revenueTheoretical += prod.getAveragePrice(t) * demand[t][i][s];
+							//Update relevance score
+							relevanceSoldProducts += prod.getRelevanceScore() * storage[t][i][s];
+							relevanceAllProducts += prod.getRelevanceScore() * demand[t][i][s];
+							// update amount of products
+							productsSold += storage[t][i][s];
+							totalDemand += demand[t][i][s];
+							
+							//Update the amount in storage
+							storage[t][i][s] = 0;
+						}
+					}
+				}
+			}
+			
+			
+			/** Moving on to the next week*/ 
+			for (int i = 0; i < n; i ++) {
+				HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+				for (int s = 0; s < size; s++) {
+					Product prod = chunk.get(sizes[s]);
+					if (prod != null && t != T[1] - 1 ) {
+						storage[t + 1][i][s] = storage[t][i][s]; //Set remaining products as starting inventory of next week
+						holdingCost += storage[t][i][s] * prod.getUnitStorageCost()  * 7; //Add holding cost for the goods that are held for more then a week
+					}
+				}
+			}
+		}
+		System.out.println("The amount of orders is: " + orders + " so ordering cost is: " + orders * 10 );	
+		System.out.println("The revenue for this period is: " + revenue);	
+		System.out.println("The holding cost for this period is: " + holdingCost);	
+		System.out.println("The profit for this period is: " + (revenue - holdingCost));
+		System.out.println();
+
+		System.out.println("The amount of products sold is: " + productsSold);	
+		System.out.println("The amount of products demanded is: " + totalDemand);	
+		System.out.println("The service level is: " + (productsSold/totalDemand));
+		System.out.println();
+
+
+		System.out.println("This is the end of the simulation main method");	
 	}
+	
+	
 	
 	public IloCplex buildModelOneWeek(int t, String[] sizes, ArrayList<Integer> fixedY, int[][] inventory,
 			ForecastDemand forecastDemand, SimulateDemand simulateDemand,
