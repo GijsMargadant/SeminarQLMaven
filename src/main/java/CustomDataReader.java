@@ -2,6 +2,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 
 import javax.swing.plaf.synth.SynthOptionPaneUI;
@@ -268,14 +269,23 @@ public class CustomDataReader {
 			i++;
 		}
 		
-		// This cleans the data in a more sophisticated way. Can be disabled without any problems
-		for(HashMap<String, HashMap<String, Product>> year : result) {
-			for(HashMap<String, Product> chunk : year.values()) {
-				for(Product product : chunk.values()) {
-					product.cleanTimeSeriesData();
-				}
-			}
-		}
+		// This part cleans the data in a more sophisticated way. Can be disabled without any problems
+//		int[] cleaningResults = new int[3];
+//		Arrays.fill(cleaningResults, 0);
+//		for(HashMap<String, HashMap<String, Product>> year : result) {
+//			for(HashMap<String, Product> chunk : year.values()) {
+//				for(Product product : chunk.values()) {
+//					int[] modCount = product.cleanTimeSeriesData();
+//					cleaningResults[0] += modCount[0];
+//					cleaningResults[1] += modCount[1];
+//					cleaningResults[2] += modCount[2];
+//				}
+//			}
+//		}
+//		System.out.println("Cleaned the folowing amount datapoints:");
+//		System.out.println("Sales: " + cleaningResults[0]);
+//		System.out.println("Volume: " + cleaningResults[1]);
+//		System.out.println("Prices: " + cleaningResults[2]);
 		
 		
 		for(int j = 0; j < years.size(); j++) {

@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Set;
 
 import ilog.concert.IloException;
 import ilog.concert.IloNumExpr;
@@ -229,13 +228,10 @@ public class Solver {
 		try {
 			cdw.writeSolutionToExcelFile(cplex, y, z, data, "Solution_SatisfactionLevels");
 		} catch (UnknownObjectException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (IloException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}

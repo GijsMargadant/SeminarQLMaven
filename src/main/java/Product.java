@@ -1,3 +1,4 @@
+import java.util.Arrays;
 
 /**
  * @author Gijs
@@ -13,8 +14,6 @@
  * @relevanceScore is a positive double between zero and one representing the relevance of the
  * product
  * @year the year in which the data was obtained
- * @isGeneralToy is a boolean that is true if the product belongs to the productGroup 'General Toys'
- * and false if the product belongs to 'Recreational and Outdoor Toys'
  */
 public class Product {
 	private int[] weeklySales;
@@ -27,9 +26,9 @@ public class Product {
 	private double unitStorageCost;
 	private double relevanceScore;
 	private int year;
-	
+
 	private boolean[] dataPresent;
-	private double z = 3.3; // z statistic for 99% confidence level
+	private double z = 3.5; // z statistic for 99% confidence level
 
 	/**
 	 * This constructor initializes a product with all data that is not time dependent. Time dependent
@@ -51,116 +50,159 @@ public class Product {
 		this.year = year;
 		this.unitStorageCost = unitStorageCost;
 		this.relevanceScore = relevanceScore;
-		
+
 		weeklySales = new int[52];
 		weeklyAverageM3 = new double[52];
 		weeklyAveragePrice = new double[52];
+		dataPresent = new boolean[52];
 		// Since we assume missing data to be zero, we fill the arrays with zeros.
 		// If data is available, we will just override these values later.
-		for(int i = 0; i < 52; i++) {
-			weeklySales[i] = 0;
-			weeklyAverageM3[i] = 0.0;
-			weeklyAveragePrice[i] = 0.0;
-			dataPresent[i] = false;
-		}
+		Arrays.fill(dataPresent, false);
+		Arrays.fill(weeklySales, 0);
+		Arrays.fill(weeklyAverageM3, 0.0);
+		Arrays.fill(weeklyAveragePrice, 0.0);
 	}
-	
+
 	/**
 	 * This method cleans al the time series data. It does so by first calculating upper and lower bounds
 	 * based on mu +/- 3.3*sigma. If a value falls outside this interval, it is removed. This procedure is
 	 * repeated until no more data points fall outside the 99% confidence interval. Finally, all removed
 	 * values are set equal to the mean of the time series.
 	 */
-	public void cleanTimeSeriesData() {
-		cleanSales();
-		cleanVolume();
-		cleanPrices();
+	public int[] cleanTimeSeriesData() {
+		int[] modCount = new int[3];
+		modCount[0] = cleanSales();
+		modCount[1] = cleanVolume();
+		modCount[2] = cleanPrices();
+		return modCount;
 	}
-	
-	private void cleanSales() {
-		for(int i = 0; i < dataPresent.length; i++) {
-			if(dataPresent[i] && weeklySales[i] < 0) {
-				weeklySales[i] = 0;
-			}
-		}
-		
-		double mean = mean(weeklySales);
+
+	private int cleanSales() {
+		int modCount = 0;
 		for(int i = 0; i < dataPresent.length; i++) {
 			if(dataPresent[i] && weeklySales[i] == 0) {
+				weeklySales[i] = Integer.MAX_VALUE;
+				modCount++;
+			}
+		}
+
+		double mean = mean(weeklySales);
+
+		for(int i = 0; i < dataPresent.length; i++) {
+			if(dataPresent[i] && weeklySales[i] == Integer.MAX_VALUE) {
 				weeklySales[i] = (int) mean;
 			}
 		}
+		return modCount;
 	}
-	
-	
-	private void cleanVolume() {
+
+
+	/**
+	 * The way the cleaning works is as follows:
+	 * First a interval is calculated
+	 * Than all values are checked. If a value falls outside the interval, it is set to infinity
+	 * These two steps are repeated until not values fall outside the interval
+	 * Finally, all values that were set to infinity, are now set to the mean
+	 * 
+	 * When calculating new mean and stdev, all infinity values are excluded
+	 */
+	private int cleanVolume() {
+		int modCount = 0;
+		double mean = mean(weeklyAverageM3);
 		boolean clean = false;
 		while(!clean) {
 			// Calculate mean and stdev
-			double mean = mean(weeklyAverageM3);
 			double stdev = stdev(weeklyAverageM3, mean);
 			double LB = Math.max(mean - z*stdev, 0.0);
 			double UB = mean + z*stdev;
 			
+//			if(chunk.substring(0, 2).equals("Sp")) {
+//				System.out.println(productGroup + " " + chunk + " " + sizeGroup + " LB,UB: " + LB + "," + UB);
+//			}
+//			if(chunk.equals("Speelgoedbarbecue")) {
+//				System.out.println(productGroup + " " + chunk + " " + sizeGroup + " LB,UB: " + LB + "," + UB);
+//			}
+			
 			// Remove values outside bounds
 			// Use open bounds, so (LB, UB) instead of [LB, UB]
+
 			boolean modified = false;
 			for(int i = 0; i < dataPresent.length; i++) {
-				if(dataPresent[i] && !(weeklyAverageM3[i] > LB || weeklyAverageM3[i] < UB)) {
-					weeklyAverageM3[i] = 0;
+				if(dataPresent[i] && (!(weeklyAverageM3[i] > LB && weeklyAverageM3[i] < UB) && weeklyAverageM3[i] != Double.MAX_VALUE)) {
+					weeklyAverageM3[i] = Double.MAX_VALUE;
 					modified = true;
+					modCount++;
 				}
 			}
-			
-			// If no data has been removed, set all removed data equal to the mean
+			// If the list was not modified, it is now clean
+			// Else, do another iteration after calculating the new mean
 			if(!modified) {
-				for(int i = 0; i < dataPresent.length; i++) {
-					if(dataPresent[i] && weeklyAverageM3[i] == 0) {
-						weeklyAverageM3[i] = mean;
-						modified = true;
-					}
-				}
 				clean = true;
+			} else {
+				mean = mean(weeklyAverageM3);
 			}
-			
 		}
+		// If data has been removed, set all removed data equal to the mean
+		if(modCount > 0) {
+			for(int i = 0; i < dataPresent.length; i++) {
+				if(dataPresent[i] && weeklyAverageM3[i] == Double.MAX_VALUE) {
+					weeklyAverageM3[i] = mean;
+				}
+			}
+			clean = true;
+		}
+		return modCount;
 	}
-	
-	
-	private void cleanPrices() {
+
+
+	private int cleanPrices() {
+		int modCount = 0;
+		double mean = mean(weeklyAveragePrice);
 		boolean clean = false;
 		while(!clean) {
 			// Calculate mean and stdev
-			double mean = mean(weeklyAveragePrice);
 			double stdev = stdev(weeklyAveragePrice, mean);
 			double LB = Math.max(mean - z*stdev, 0.0);
 			double UB = mean + z*stdev;
-			
+
 			// Remove values outside bounds
 			// Use open bounds, so (LB, UB) instead of [LB, UB]
+//			
+//			if(chunk.equals("Educatief spel")) {
+//				System.out.println(productGroup + " " + chunk + " " + sizeGroup + " LB,UB: " + LB + "," + UB);
+//			}
+
 			boolean modified = false;
 			for(int i = 0; i < dataPresent.length; i++) {
-				if(dataPresent[i] && !(weeklyAveragePrice[i] > LB || weeklyAveragePrice[i] < UB)) {
-					weeklyAveragePrice[i] = 0;
+				if(dataPresent[i] && (!(weeklyAveragePrice[i] > LB && weeklyAveragePrice[i] < UB) && weeklyAveragePrice[i] != Double.MAX_VALUE)) {
+//					System.out.print("Removing: " + weeklyAveragePrice[i] + " ");
+//					System.out.println(productGroup + " " + chunk + " " + sizeGroup + " LB,UB: " + LB + "," + UB + " stdev: " + stdev);
+					weeklyAveragePrice[i] = Double.MAX_VALUE;
 					modified = true;
+					modCount++;
 				}
 			}
-			
-			// If no data has been removed, set all removed data equal to the mean
+			// If the list was not modified, it is now clean
+			// Else, do another iteration after calculating the new mean
 			if(!modified) {
-				for(int i = 0; i < dataPresent.length; i++) {
-					if(dataPresent[i] && weeklyAveragePrice[i] == 0) {
-						weeklyAveragePrice[i] = mean;
-						modified = true;
-					}
-				}
 				clean = true;
+			} else {
+				mean = mean(weeklyAveragePrice);
 			}
-			
 		}
+		// If data has been removed, set all removed data equal to the mean
+		if(modCount > 0) {
+			for(int i = 0; i < dataPresent.length; i++) {
+				if(dataPresent[i] && weeklyAveragePrice[i] == Double.MAX_VALUE) {
+					weeklyAveragePrice[i] = mean;
+				}
+			}
+			clean = true;
+		}
+		return modCount;
 	}
-	
-	
+
+
 	/**
 	 * This method calculate the mean of an integer array
 	 * @param arr
@@ -170,7 +212,7 @@ public class Product {
 		double mean = 0.0;
 		int n = 0;
 		for(int i = 0; i < dataPresent.length; i++) {
-			if(dataPresent[i] && arr[i] > 0) {
+			if(dataPresent[i] && arr[i] > 0 && arr[i] < Integer.MAX_VALUE) {
 				mean += arr[i];
 				n++;
 			}
@@ -178,8 +220,8 @@ public class Product {
 		mean = mean / (double) n;
 		return mean;
 	}
-	
-	
+
+
 	/**
 	 * This method calculate the mean of a double array
 	 * @param arr
@@ -189,7 +231,7 @@ public class Product {
 		double mean = 0.0;
 		int n = 0;
 		for(int i = 0; i < dataPresent.length; i++) {
-			if(dataPresent[i] && arr[i] > 0) {
+			if(dataPresent[i] && arr[i] > 0 && arr[i] < Double.MAX_VALUE) {
 				mean += arr[i];
 				n++;
 			}
@@ -197,26 +239,26 @@ public class Product {
 		mean = mean / (double) n;
 		return mean;
 	}
-	
-	/**
-	 * This method calculates the standard deviation for an integer array
-	 * @param arr
-	 * @param mean
-	 * @return
-	 */
-	private double stdev(int[] arr, double mean) {
-		double stdev = 0.0;
-		int n = 0;
-		for(int i = 0; i < dataPresent.length; i++) {
-			if(dataPresent[i] && arr[i] > 0) {
-				stdev += Math.pow((double)(arr[i] - mean), 2.0);
-				n++;
-			}
-		}
-		stdev = Math.sqrt(stdev / (double) (n - 1));
-		return stdev;
-	}
-	
+
+//	/**
+//	 * This method calculates the standard deviation for an integer array
+//	 * @param arr
+//	 * @param mean
+//	 * @return
+//	 */
+//	private double stdev(int[] arr, double mean) {
+//		double stdev = 0.0;
+//		int n = 0;
+//		for(int i = 0; i < dataPresent.length; i++) {
+//			if(dataPresent[i] && arr[i] > 0 && arr[i] < Integer.MAX_VALUE) {
+//				stdev += Math.pow((double)(arr[i] - mean), 2.0);
+//				n++;
+//			}
+//		}
+//		stdev = Math.sqrt(stdev / (double) (n - 1));
+//		return stdev;
+//	}
+
 	/**
 	 * This method calculates the standard deviation for a double array
 	 * @param arr
@@ -227,17 +269,27 @@ public class Product {
 		double stdev = 0.0;
 		int n = 0;
 		for(int i = 0; i < dataPresent.length; i++) {
-			if(dataPresent[i] && arr[i] > 0) {
+			if(dataPresent[i] && arr[i] > 0 && arr[i] < Double.MAX_VALUE) {
 				stdev += Math.pow((double)(arr[i] - mean), 2.0);
 				n++;
 			}
 		}
-		stdev = Math.sqrt(stdev / (double) (n - 1));
+		if(n > 1) {
+			stdev = Math.sqrt(stdev / (double) (n - 1));
+		} else {
+			// If only one observation is present, don't modify it by setting stdev equal to 1.
+			// In this way, the one observation will always lay in the interval
+			stdev = 1;
+		}
+		// This is needed in case there is no variance, because the interval is open
+		if(stdev == 0) {
+			stdev = 1;
+		}
 		return stdev;
 	}
 
-	
-	
+
+
 	/**
 	 * This method sets the qty of sales for a certain week
 	 * @param week goes from 1 to 52
@@ -247,7 +299,7 @@ public class Product {
 		weeklySales[week - 1] = qty;
 		dataPresent[week - 1] = true;
 	}
-	
+
 	/**
 	 * This method sets the averageM3 for a given week
 	 * @param week goes from 1 to 52
@@ -257,7 +309,7 @@ public class Product {
 		weeklyAverageM3[week - 1] = volume; 
 		dataPresent[week - 1] = true;
 	}
-	
+
 	/**
 	 * This method sets the price for a given week
 	 * @param week goes from 1 to 52
@@ -267,7 +319,7 @@ public class Product {
 		weeklyAveragePrice[week - 1] = price;
 		dataPresent[week - 1] = true;
 	}
-	
+
 	/**
 	 * This method returns the sales for a given week
 	 * @param week goes from 0 to 51
@@ -276,7 +328,7 @@ public class Product {
 	public int getSales(int week) {
 		return weeklySales[week];
 	}
-	
+
 	/**
 	 * This method returns the averageM3 for a given week
 	 * @param week goes from 0 to 51
@@ -285,7 +337,7 @@ public class Product {
 	public double getAverageM3(int week) {
 		return weeklyAverageM3[week];
 	}
-	
+
 	/**
 	 * This method gives the average price for a given week
 	 * @param week goes from 1 to 52
