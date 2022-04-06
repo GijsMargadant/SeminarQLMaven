@@ -1,4 +1,6 @@
 import java.util.Arrays;
+import java.util.Random;
+import java.util.stream.IntStream;
 
 /**
  * @author Gijs
@@ -29,7 +31,17 @@ public class Product {
 
 	private boolean[] dataPresent;
 	private double z = 3.5; // z statistic for 99% confidence level
+	
+	private int nWeeks;
+	private double[] seasonalIndices;
+	private double[] cleanedSales;
+	private final int nSeasons = 52;
+	private double cleanedMean;
+	private double cleanedStdev;
+	private double level;
+	private double trend;
 
+	
 	/**
 	 * This constructor initializes a product with all data that is not time dependent. Time dependent
 	 * data must be added manually with separate functions.
@@ -63,6 +75,197 @@ public class Product {
 		Arrays.fill(weeklyAveragePrice, 0.0);
 	}
 
+	
+	/**
+	 * This constructor makes it possible to store more than one year in the product class.
+	 * @param shop
+	 * @param productGroup
+	 * @param chunk
+	 * @param sizeGroup
+	 * @param unitStorageCost
+	 * @param relevanceScore
+	 * @param nWeeks
+	 */
+	public Product(String shop, String productGroup, String chunk, String sizeGroup,
+			double unitStorageCost, double relevanceScore, int nWeeks) {
+		this.chunk = chunk;
+		this.sizeGroup = sizeGroup;
+		this.shop = shop;
+		this.productGroup = productGroup;
+		this.unitStorageCost = unitStorageCost;
+		this.relevanceScore = relevanceScore;
+		this.nWeeks = nWeeks;
+
+		weeklySales = new int[nWeeks];
+		weeklyAverageM3 = new double[nWeeks];
+		weeklyAveragePrice = new double[nWeeks];
+		dataPresent = new boolean[nWeeks];
+		// Since we assume missing data to be zero, we fill the arrays with zeros.
+		// If data is available, we will just override these values later.
+		Arrays.fill(dataPresent, false);
+		Arrays.fill(weeklySales, 0);
+		Arrays.fill(weeklyAverageM3, 0.0);
+		Arrays.fill(weeklyAveragePrice, 0.0);
+	}
+	
+	//-------------------------------------------------------------------
+	// This part contains the code to create a distribution for the data
+	//-------------------------------------------------------------------
+	
+	/**
+	 * This method deseasonalizes and detrends the data and finds the parameters
+	 * of the Poisson distribution for the cleaned data
+	 */
+	public void calculateDistributionProperties() {
+		// Find the seasonal indices for each season
+		findSeasonalIndices();
+		// Deseasonalize the data
+		double[] deseasonalizedData = deseasonalizeData();
+		// Find level and trend by means of ols on deseasonalized data
+		double[] beta = findLevelAndTrend(deseasonalizedData);
+		level = beta[0];
+		trend = beta[1];
+		// Final cleaning
+		delevelAndDetrendData(deseasonalizedData);
+		// calculate the mean of the cleaned data
+		cleanedMean = mean(cleanedSales);
+		cleanedStdev = stdev(cleanedSales, cleanedMean);
+	}
+	
+	
+	/**
+	 * This method finds the seasonal indices for each period. It does so in the following way:
+	 * - first calculate a moving average for each week. This average is composed of the nSeasons
+	 * amount of data points around a given week. So for week 0, that is week 0 till week nSeasons.
+	 * For week 26, this is week 26-nSeasons/2 till week 26+nSeasons/2
+	 * - Secondly, take the average of the different seasonal indices found for the same periods. So
+	 * if both 2019 and 2018 data is present, there are two weeks 0. The final seasonal index for week
+	 * 0 is the average of them.
+	 */
+	private void findSeasonalIndices() {
+		// Initialize an array in which to safe the temporarily seasonal indices.
+		double[] SI = new double[nWeeks];
+		for(int i = 0; i < nWeeks; i++) {
+			// Calculate the moving average mean for each week
+			int lb = Math.max(i - (nSeasons/2), 0);
+			int ub = (int) Math.min(i + Math.ceil((double) nSeasons/2), nWeeks);
+			double mean = mean(Arrays.copyOfRange(weeklySales, lb, ub));
+			// Calculate seasonal index
+			SI[i] = weeklySales[i] / mean;
+		}
+		// Average the seasonal indices for the same periods
+		double sum2 = 0.0;
+		for(int i = 0; i < nSeasons; i++) {
+			int n = 0;
+			double sum = 0.0;
+			for(int j = i; j < nWeeks; j+=nSeasons) {
+				sum += SI[j];
+				n++;
+			}
+			seasonalIndices[i] = sum / n;
+			sum2 += seasonalIndices[i];
+		}
+		// Normalize the indices
+		double c = nSeasons / sum2;
+		for(int i = 0; i < nSeasons; i++) {
+			seasonalIndices[i] *= c;
+		}
+	}
+	
+	
+	/**
+	 * This method deseasonalizes the data. It does so by dividing the weekly data by the
+	 * corresponding seasonal index.
+	 * @return
+	 */
+	private double[] deseasonalizeData() {
+		double[] result = new double[nWeeks];
+		for(int i = 0; i < nSeasons; i++) {
+			for(int j = i; j < nWeeks; j+=nSeasons) {
+				result[j] = weeklySales[j] / seasonalIndices[i];
+			}
+		}
+		return result;
+	}
+	
+	
+	/**
+	 * This method performs OLS on the deseasonalized data in order to find the level and the trend.
+	 * @param deseasonalizedData
+	 * @return
+	 */
+	private double[] findLevelAndTrend(double[] deseasonalizedData) {
+		double[] result = new double[2];
+		// x will in our case be the time
+		double[] x = IntStream.range(0, nWeeks).mapToDouble(i -> (double) i).toArray();
+
+        // first calculate the mean of x and y
+        double sumx = 0.0;
+        double sumy = 0.0;
+        for (int i = 0; i < nWeeks; i++) {
+            sumx  += x[i];
+            sumy  += deseasonalizedData[i];
+        }
+        double xbar = sumx / nWeeks;
+        double ybar = sumy / nWeeks;
+
+        // now calculate the slope and level cov(x,x) and cov(x,y)
+        double xxbar = 0.0;
+        double xybar = 0.0;
+        for (int i = 0; i < nWeeks; i++) {
+            xxbar += (x[i] - xbar) * (x[i] - xbar);
+            xybar += (x[i] - xbar) * (deseasonalizedData[i] - ybar);
+        }
+        double slope  = xybar / xxbar;
+        double intercept = ybar - slope * xbar;
+        
+        result[0] = intercept;
+        result[1] = slope;
+		
+		return result;
+	}
+	
+	
+	/**
+	 * This method removes the level and the trend from the data.
+	 * @param level
+	 * @param trend
+	 * @param deseasonalizedData
+	 */
+	private void delevelAndDetrendData(double[] deseasonalizedData) {
+		for(int i = 0; i < nWeeks; i++) {
+			cleanedSales[i] = deseasonalizedData[i] / (level + i * trend);
+		}
+	}
+	
+	
+	/**
+	 * This method 
+	 * @param week, the week for which a sales value needs to be estimated after week 52 of 2019.
+	 * So week 0 means week 1 of 2020
+	 * @param r the random object used to generate normally distributed value with.
+	 * @return a sales value as integer
+	 */
+	public int pullRandomSales(int week, Random r) {
+		int season = week % nSeasons;
+		double levelAndTrend = level + (nWeeks + week) * trend;
+		
+		// Pull from normal distribution
+		double x = r.nextGaussian(cleanedMean, cleanedStdev);
+		if(x < 0) {
+			x = 0;
+		}
+		
+		int sales = (int) Math.round(levelAndTrend * seasonalIndices[season] * x);
+		
+		return sales;
+	}
+	
+	
+	//-----------------------------------------------------------
+	// This part contains the code to clean the data
+	//-----------------------------------------------------------
+
 	/**
 	 * This method cleans al the time series data. It does so by first calculating upper and lower bounds
 	 * based on mu +/- 3.3*sigma. If a value falls outside this interval, it is removed. This procedure is
@@ -77,6 +280,7 @@ public class Product {
 		return modCount;
 	}
 
+	
 	private int cleanSales() {
 		int modCount = 0;
 		for(int i = 0; i < dataPresent.length; i++) {
@@ -287,8 +491,7 @@ public class Product {
 		}
 		return stdev;
 	}
-
-
+	
 
 	/**
 	 * This method sets the qty of sales for a certain week
