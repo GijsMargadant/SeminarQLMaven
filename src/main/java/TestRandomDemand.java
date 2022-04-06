@@ -362,6 +362,8 @@ public class TestRandomDemand {
 		
 		//-------------------------------------
 		// This code is used to calculate the distribution properties
+		//-------------------------------------
+		
 		int count = 0;
 		tic = System.currentTimeMillis();
 		for(HashMap<String,Product> chunk : data.values()) {
