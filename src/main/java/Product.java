@@ -143,13 +143,21 @@ public class Product {
 	 * 0 is the average of them.
 	 */
 	private void findSeasonalIndices() {
+		seasonalIndices = new double[nSeasons];
 		// Initialize an array in which to safe the temporarily seasonal indices.
 		double[] SI = new double[nWeeks];
 		for(int i = 0; i < nWeeks; i++) {
 			// Calculate the moving average mean for each week
 			int lb = Math.max(i - (nSeasons/2), 0);
 			int ub = (int) Math.min(i + Math.ceil((double) nSeasons/2), nWeeks);
-			double mean = mean(Arrays.copyOfRange(weeklySales, lb, ub));
+			if(ub - lb < nSeasons) {
+				if(lb == 0) {
+					ub = nSeasons;
+				} else {
+					lb = nWeeks - nSeasons;
+				}
+			}
+			double mean = mean(weeklySales, lb, ub);
 			// Calculate seasonal index
 			SI[i] = weeklySales[i] / mean;
 		}
@@ -233,6 +241,7 @@ public class Product {
 	 * @param deseasonalizedData
 	 */
 	private void delevelAndDetrendData(double[] deseasonalizedData) {
+		cleanedSales = new double[nWeeks];
 		for(int i = 0; i < nWeeks; i++) {
 			cleanedSales[i] = deseasonalizedData[i] / (level + i * trend);
 		}
@@ -259,6 +268,27 @@ public class Product {
 		int sales = (int) Math.round(levelAndTrend * seasonalIndices[season] * x);
 		
 		return sales;
+	}
+	
+	
+	/**
+	 * This method calculates the mean of a partial array without the need of
+	 * Copying the partial array to a new array.
+	 * @param arr
+	 * @param lb
+	 * @param ub
+	 * @return
+	 */
+	private double mean(int[] arr, int lb, int ub) {
+		double mean = 0.0;
+		int n = 0;
+		for(int i = lb; i < ub; i++) {
+			if(dataPresent[i]) {
+				mean += arr[i];
+				n++;
+			}
+		}
+		return mean/n;
 	}
 	
 	
@@ -415,6 +445,7 @@ public class Product {
 	private double mean(int[] arr) {
 		double mean = 0.0;
 		int n = 0;
+		// Problem is that the given arr is not the same length as dataPresent
 		for(int i = 0; i < dataPresent.length; i++) {
 			if(dataPresent[i] && arr[i] > 0 && arr[i] < Integer.MAX_VALUE) {
 				mean += arr[i];
@@ -677,4 +708,66 @@ public class Product {
 	public void setProductGroup(String productGroup) {
 		this.productGroup = productGroup;
 	}
+
+
+	public double[] getSeasonalIndices() {
+		return seasonalIndices;
+	}
+
+
+	public void setSeasonalIndices(double[] seasonalIndices) {
+		this.seasonalIndices = seasonalIndices;
+	}
+
+
+	public double[] getCleanedSales() {
+		return cleanedSales;
+	}
+
+
+	public void setCleanedSales(double[] cleanedSales) {
+		this.cleanedSales = cleanedSales;
+	}
+
+
+	public double getCleanedMean() {
+		return cleanedMean;
+	}
+
+
+	public void setCleanedMean(double cleanedMean) {
+		this.cleanedMean = cleanedMean;
+	}
+
+
+	public double getCleanedStdev() {
+		return cleanedStdev;
+	}
+
+
+	public void setCleanedStdev(double cleanedStdev) {
+		this.cleanedStdev = cleanedStdev;
+	}
+
+
+	public double getLevel() {
+		return level;
+	}
+
+
+	public void setLevel(double level) {
+		this.level = level;
+	}
+
+
+	public double getTrend() {
+		return trend;
+	}
+
+
+	public void setTrend(double trend) {
+		this.trend = trend;
+	}
+	
+	
 }
