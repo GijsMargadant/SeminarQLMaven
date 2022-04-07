@@ -108,6 +108,20 @@ public class Product {
 		Arrays.fill(weeklyAveragePrice, 0.0);
 	}
 	
+	/**
+	 * This method computes the variance between two sales data points. It assumes that
+	 * it is just a sample, so it divides by n-1 instead of n. 2020 is not taken into
+	 * account since it is to different from the rest of the data.
+	 * @param week, Week 0 is the first week of the year
+	 * @return
+	 */
+	public double getSalesVarianceOfWeek(int week) {
+		int a = weeklySales[week];
+		int b = weeklySales[week + nWeeks];
+		int diff = b - a;
+		return diff * diff * 0.5;
+	}
+	
 	//-------------------------------------------------------------------
 	// This part contains the code to create a distribution for the data
 	//-------------------------------------------------------------------
@@ -119,14 +133,14 @@ public class Product {
 	public void calculateDistributionProperties() {
 		// Find the seasonal indices for each season
 		findSeasonalIndices();
-		if(chunk.equals("Speelmais") && sizeGroup.equals("XS")) {
+		if(chunk.equals("Telraam") && sizeGroup.equals("S")) {
 			System.out.println("Seasonal indices:");
 			System.out.println(Arrays.toString(seasonalIndices));
 		}
 		// Deseasonalize the data
 		double[] deseasonalizedData = deseasonalizeData();
-		if(chunk.equals("Speelmais") && sizeGroup.equals("XS")) {
-			System.out.println("Seasonal indices:");
+		if(chunk.equals("Telraam") && sizeGroup.equals("S")) {
+			System.out.println("Deseasonalized data:");
 			System.out.println(Arrays.toString(deseasonalizedData));
 		}
 		// Find level and trend by means of ols on deseasonalized data
@@ -228,22 +242,22 @@ public class Product {
 		double[] result = new double[2];
 		// x will in our case be the time
 		double[] x = IntStream.range(0, nWeeks).mapToDouble(i -> (double) i).toArray();
-		if(chunk.equals("Speelmais") && sizeGroup.equals("XS")) {
-			System.out.println("x:");
-			System.out.println(Arrays.toString(x));
-		}
 
         // first calculate the mean of x and y
         double sumx = 0.0;
         double sumy = 0.0;
+        int n = 0;
         for (int i = 0; i < nWeeks; i++) {
+        	if(dataPresent[i]) {
             sumx  += x[i];
             sumy  += deseasonalizedData[i];
+            n++;
+        	}
         }
-        double xbar = sumx / nWeeks;
-        double ybar = sumy / nWeeks;
+        double xbar = sumx / n;
+        double ybar = sumy / n;
         
-		if(chunk.equals("Speelmais") && sizeGroup.equals("XS")) {
+		if(chunk.equals("Telraam") && sizeGroup.equals("S")) {
 			System.out.println("xbar, ybar:");
 			System.out.println(xbar + ", " + ybar);
 		}
@@ -252,11 +266,22 @@ public class Product {
         double xxbar = 0.0;
         double xybar = 0.0;
         for (int i = 0; i < nWeeks; i++) {
-            xxbar += (x[i] - xbar) * (x[i] - xbar);
-            xybar += (x[i] - xbar) * (deseasonalizedData[i] - ybar);
+        	if(dataPresent[i]) {
+                xxbar += (x[i] - xbar) * (x[i] - xbar);
+                xybar += (x[i] - xbar) * (deseasonalizedData[i] - ybar);
+        	}
         }
         double slope  = xybar / xxbar;
         double intercept = ybar - slope * xbar;
+        
+		if(chunk.equals("Telraam") && sizeGroup.equals("S")) {
+			System.out.println("xybar, xxbar:");
+			System.out.println(xybar + ", " + xxbar);
+		}
+		if(chunk.equals("Telraam") && sizeGroup.equals("S")) {
+			System.out.println("slope, icept:");
+			System.out.println(slope + ", " + intercept);
+		}
         
         result[0] = intercept;
         result[1] = slope;
@@ -341,18 +366,7 @@ public class Product {
 		for(int i = 0; i < arr.length; i++) {
 			double x = arr[i] - mean;
 			sumsq += x*x;
-			
-//			if(chunk.equals("Speelmais") && sizeGroup.equals("XS")) {
-//				System.out.println("sumsq");
-//				System.out.println(sumsq);
-//			}
 		}
-		
-//		if(chunk.equals("Speelmais") && sizeGroup.equals("XS")) {
-//			System.out.println("sumsq");
-//			System.out.println(sumsq);
-//		}
-		
 		return Math.sqrt(sumsq / arr.length);
 	}
 	
