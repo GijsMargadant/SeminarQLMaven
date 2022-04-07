@@ -126,6 +126,8 @@ public class StochasticSolver {
 //						if (t + 1 != T) {
 //							cplex.addEq(cplex.sum(u[t + 1][i][s], z[t][i][s]), cplex.sum(x[t][i][s][0], x[t][i][s][1]), "Inventory at the beginning of the period");
 //						}
+						double criticalValue = prod.getProductGroup().equals("General Toys") ? criticalValue98 : criticalValue95;
+						cplex.addGe(cplex.sum(x[t][i][s][0], x[t][i][s][1]), prod.getSales(t) + prod.getSalesVarianceOfWeek(t)*criticalValue);
 					}
 				}
 			}
@@ -150,7 +152,7 @@ public class StochasticSolver {
 		}
 		
 		//Add the service level constraints
-		cplex = Solver.serviceLevelConstraintPerCategorie(T, sizes, cplex, z, data);
+//		cplex = Solver.serviceLevelConstraintPerCategorie(T, sizes, cplex, z, data);
 		
 		
 		// The last three parameters are nbr of steps, size of the steps, and value of first step. 
