@@ -24,9 +24,37 @@ public class TestRandomDemand {
 	private static HashMap<String,HashMap<String,Product>> data;
 	
 	public static void main(String[] args) {
+		
+//		File data;
+//		File relevanceScore;
+//		File warehouseCost;
+//		// Check your operating system in order to correctly specify file paths
+//		String os = System.getProperty("os.name").toLowerCase();
+//		if (os.indexOf("win") >= 0) {
+//			data = new File(".\\dataFiles\\dataset.xlsx");
+//			relevanceScore = new File(".\\dataFiles\\EUR_BusinessCase_Chunk_RelevanceScore_V2.xlsx");
+//			warehouseCost = new File(".\\dataFiles\\EUR_BusinessCase_Sizegroup_Costs.xlsx");
+//		}else {
+//			data = new File("./dataFiles/dataset.xlsx");
+//			relevanceScore = new File("./dataFiles/EUR_BusinessCase_Chunk_RelevanceScore_V2.xlsx");
+//			warehouseCost = new File("./dataFiles/EUR_BusinessCase_Sizegroup_Costs.xlsx");
+//		}
+//		
+//		try {
+//			
+//			
+//			CustomDataReader cdr = new CustomDataReader(data, relevanceScore, warehouseCost);
+//			cdr.readDataCombined();
+//			
+//		} catch (FileNotFoundException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
+		
+		
 		getData();
 		
-		String name = "data";
+		String name = "data2";
 		String file = "C:\\Users\\gijsm\\Documents\\DOCUMENTEN\\School\\SeminarCaseStudy\\SolutionFiles\\" + name + ".xlsx";
 		try {
 			writeData(file);
@@ -77,20 +105,28 @@ public class TestRandomDemand {
 			break;
 			default:
 				int startCel = celNum;
+				int i = 0;
 				while(celNum < startCel + nSeasons) {
 					Cell c = header.createCell(celNum);
-					c.setCellValue("SI" + celNum);
+					c.setCellValue("SI" + i);
 					celNum++;
+					i++;
 				}
+				startCel = celNum;
+				i = 0;
 				while(celNum < startCel + nWeeks) {
 					Cell c = header.createCell(celNum);
-					c.setCellValue("cleaned" + celNum);
+					c.setCellValue("cleaned" + i);
 					celNum++;
+					i++;
 				}
+				startCel = celNum;
+				i = 0;
 				while(celNum < startCel + nWeeks) {
 					Cell c = header.createCell(celNum);
-					c.setCellValue("sales" + celNum);
+					c.setCellValue("sales" + i);
 					celNum++;
+					i++;
 				}
 
 				ready = true;
