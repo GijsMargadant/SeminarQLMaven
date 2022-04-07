@@ -350,6 +350,10 @@ public class Solver {
 		}
 	}
 	
+	public static void stochasticConstraint() {
+		
+	}
+	
 	
 	/**
 	 * This method allows you to write the solution to an excel file. 
