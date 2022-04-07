@@ -2,7 +2,10 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+
+import javax.swing.plaf.synth.SynthOptionPaneUI;
 
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
@@ -44,8 +47,17 @@ public class CustomDataReader {
 			ArrayList<Integer> years = new ArrayList<Integer>();
 			years.add(2018);
 			years.add(2019);
-			cdm.readData(years);
+			ArrayList<HashMap<String, HashMap<String, Product>>> result = cdm.readData(years);
 			
+			int year = 0;
+			for(HashMap<String, HashMap<String, Product>> yearlyData : result) {
+				int totalProducts = 0;
+				for(String chunk : yearlyData.keySet()) {
+					totalProducts += yearlyData.get(chunk).keySet().size();
+				}
+				System.out.println("Total products in year " + years.get(year) + ": " + totalProducts);
+				year++;
+			}
 			
 			
 		} catch (FileNotFoundException e) {
@@ -256,6 +268,26 @@ public class CustomDataReader {
 			}
 			i++;
 		}
+		
+		// This part cleans the data in a more sophisticated way. Can be disabled without any problems
+//		int[] cleaningResults = new int[3];
+//		Arrays.fill(cleaningResults, 0);
+//		for(HashMap<String, HashMap<String, Product>> year : result) {
+//			for(HashMap<String, Product> chunk : year.values()) {
+//				for(Product product : chunk.values()) {
+//					int[] modCount = product.cleanTimeSeriesData();
+//					cleaningResults[0] += modCount[0];
+//					cleaningResults[1] += modCount[1];
+//					cleaningResults[2] += modCount[2];
+//				}
+//			}
+//		}
+//		System.out.println("Cleaned the folowing amount datapoints:");
+//		System.out.println("Sales: " + cleaningResults[0]);
+//		System.out.println("Volume: " + cleaningResults[1]);
+//		System.out.println("Prices: " + cleaningResults[2]);
+		
+		
 		for(int j = 0; j < years.size(); j++) {
 			System.out.println("Data size for year " + years.get(j) + ": " + result.get(j).size() + " chunks");
 		}
