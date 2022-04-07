@@ -18,7 +18,8 @@ public class StochasticSolver {
 		
 		//read data for year 2018
 		ArrayList<Integer> years = new ArrayList<Integer>(Arrays.asList(2020));
-		ArrayList<HashMap<String, HashMap<String, Product>>> dt = readData(new ArrayList<Integer>(Arrays.asList(2018)));
+		ArrayList<HashMap<String, HashMap<String, Product>>> dt = readData(new ArrayList<Integer>(Arrays.asList(2020)));
+		System.out.println(dt);
 
 		//Try to build and solve the model.
 		
@@ -49,7 +50,7 @@ public class StochasticSolver {
 			relevanceScore = new File(".\\dataFiles\\EUR_BusinessCase_Chunk_RelevanceScore_V2.xlsx");
 			warehouseCost = new File(".\\dataFiles\\EUR_BusinessCase_Sizegroup_Costs.xlsx");
 		}else {
-			data = new File("./dataFiles/dataset.xlsx");
+			data = new File("./dataFiles/Forecast with dummy 45 - 51.xlsx");
 			relevanceScore = new File("./dataFiles/EUR_BusinessCase_Chunk_RelevanceScore_V2.xlsx");
 			warehouseCost = new File("./dataFiles/EUR_BusinessCase_Sizegroup_Costs.xlsx");
 		}
@@ -194,7 +195,7 @@ public class StochasticSolver {
 			
 			
 			//	Write the excel file to a excel file
-			//writeSolutionToDucument(cplex, z, y, data);
+//			writeSolutionToDucument(cplex, z, y, data);
 			
 		}
 		else
