@@ -1,3 +1,5 @@
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -17,13 +19,54 @@ public class Simulation {
 				
 		//read data for year 2018
 //		ArrayList<Integer> years = new ArrayList<Integer>(Arrays.asList(2018, 2019,2020));
-		ArrayList<Integer> years = new ArrayList<Integer>(Arrays.asList(2020));
-		ArrayList<HashMap<String, HashMap<String, Product>>> dt = Solver.readData(years);
+//		ArrayList<Integer> years = new ArrayList<Integer>(Arrays.asList(2020));
+//		ArrayList<HashMap<String, HashMap<String, Product>>> dt = Solver.readData(years);
+		HashMap<String, HashMap<String, Product>> dt = Simulation.readData();
 		
+		
+		System.out.println("De data is geladen");
+		
+		
+		/*
+		int size = sizes.length;
+		ArrayList<String> chunkNames = new ArrayList<String>(dt.keySet());
+		int n = chunkNames.size();
+		
+		for (int i = 0; i < n; i ++) {
+			for (int t = 0; t < 1; t++) {
+				for (int s = 0; s < size; s++) {
+					HashMap<String, Product> chunk = dt.get(chunkNames.get(i));
+					Product prod = chunk.get(sizes[s]);
+					if (prod != null) {
+						if (prod.getAverageAverageM3() == 1) {
+							System.out.println(prod.getAverageAverageM3());
+							for (int j =0; j < 104; j ++) {
+								System.out.print(prod.getAverageM3(j));
+								
+							}
+							System.out.println();
+
+						}
+						
+						if (Double.isNaN(prod.getAverageAverageM3())) {
+							System.out.println(prod.getAverageAverageM3());
+							System.out.println(prod.getAverageM3(t));
+						}
+					}
+				}
+			}
+		}
+		*/
+		
+		solve2020(new int[]{0,52}, sizes, dt);
+
+		
+		
+		/*
 		int[] T = new int[] {0,2};
 		
 		int size = sizes.length;
-		ArrayList<String> chunkNames = new ArrayList<String>(dt.get(0).keySet());
+		ArrayList<String> chunkNames = new ArrayList<String>(dt.keySet());
 		int n = chunkNames.size();
 		int[][][] z = new int[T[1]][n][size];
 		int[][][] demand = new int[T[1]][n][size];
@@ -40,7 +83,7 @@ public class Simulation {
 
 		//Adding a bit of randomness to the demand
 		for (int i = 0; i < n; i ++) {
-			HashMap<String, Product> chunk = dt.get(0).get(chunkNames.get(i));
+			HashMap<String, Product> chunk = dt.get(chunkNames.get(i));
 			for (int s = 0; s < size; s++) {
 				Product prod = chunk.get(sizes[s]);
 				if (prod != null) {
@@ -52,10 +95,243 @@ public class Simulation {
 				}
 			}
 		}
-		simulationMain(T, sizes, dt.get(0), z, demand);
-
+		simulationMain(T, sizes, dt, z, demand);
+		*/
 		
 	}
+	
+	public static void solve2020(int[] T, String[] sizes, HashMap<String, HashMap<String, Product>> data) throws IloException
+	{
+		// Create the model.
+		IloCplex cplex = new IloCplex ();
+//		cplex.setParam(IloCplex.Param.MIP.Tolerances.MIPGap, 0.00001);
+
+		int maxDemandProduct = 60012;
+
+		//double cap0 = 3000*15/100;
+		//double cap1 = 15000*15/100;
+		
+		int size = sizes.length;
+		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
+		int n = chunkNames.size();
+		
+		// Create the variables and their domain restrictions.
+		IloNumVar [][][][] x = new IloNumVar[T[1]][n][size][2];
+		IloNumVar [][][] z = new IloNumVar[T[1]][n][size];
+//		IloNumVar [][][] u = new IloNumVar[T][n][size];
+		IloNumVar [] y = new IloNumVar[n];
+		
+		for (int i = 0; i < n; i ++) {
+			y[i] = cplex.boolVar("y(" + chunkNames.get(i) + ")");
+			for (int t = T[0]; t < T[1]; t++) {
+				for (int s = 0; s < size; s++) {
+					HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+					Product prod = chunk.get(sizes[s]);
+					if (prod != null) {
+						x[t][i][s][0] = cplex.intVar(0, Integer.MAX_VALUE, "x(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + "," + 0 + ")");
+						x[t][i][s][1] = cplex.intVar(0, Integer.MAX_VALUE, "x(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + "," + 1 + ")");
+						// TODO (done): Change .getSales() to get prediction. 
+						z[t][i][s] = cplex.intVar(0, Math.max(prod.getPredictedDemand(t), 0), "z(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + ")");
+//						u[t][i][s] = cplex.intVar(0, Integer.MAX_VALUE, "z(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + ")");
+					}
+				}
+			}
+		}
+		
+		// Create the objective.
+		IloNumExpr objExpr = cplex.constant(0);
+		
+		for (int i = 0; i < n; i ++) {
+			HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+			for (int s = 0; s < size; s++) {
+				Product prod = chunk.get(sizes[s]);
+				if (prod != null) {
+//					cplex.addEq(u[0][i][s], 0, "Initial storage level");
+					for (int t = T[0]; t < T[1]; t++) {
+						objExpr = cplex.sum(objExpr, cplex.prod(prod.getAverageAveragePrice(), z[t][i][s]));
+						// Use one of the two
+//						cplex.addGe(cplex.sum(x[t][i][s][0], x[t][i][s][1]), cplex.sum(u[t][i][s], z[t][i][s]), "Constraints on goods in warehouse");
+						//TODO: maybe this constraint can be relaxed
+						cplex.addEq(cplex.sum(x[t][i][s][0], x[t][i][s][1]), z[t][i][s], "Constraints on goods in warehouse");
+						
+						cplex.addLe(x[t][i][s][0], cplex.prod(maxDemandProduct, cplex.sum(1, cplex.negative(y[i]))), "Constraints on warehouse goods allocation");
+						cplex.addLe(x[t][i][s][1], cplex.prod(maxDemandProduct, y[i]), "Constraints on warehouse goods allocation");
+//						if (t + 1 != T) {
+//							cplex.addEq(cplex.sum(u[t + 1][i][s], z[t][i][s]), cplex.sum(x[t][i][s][0], x[t][i][s][1]), "Inventory at the beginning of the period");
+//						}
+					}
+				}
+			}
+		}
+		cplex.addMaximize(objExpr);
+		
+		
+		
+		//Add capacity constraint for small and big warehouse
+		cplex = Solver.addCapacityConstraint2020(T, sizes, cplex, x, data, 0.15, 0.15);
+		
+		//Add relevance score constraint
+//		cplex = Solver.addRelevanceScoreConstraint(T, sizes, cplex, z, data, 0.53);
+//		cplex = Solver.addRelevanceScoreConstraintSum(T, sizes, cplex, z, data, 0.925);
+		
+		//Add the service level constraints
+//		cplex = Solver.serviceLevelConstraintPerCategorie(T, sizes, cplex, z, data);
+//		cplex = Solver.serviceLevelConstraintPerCategoriePeekWeeks(T, sizes, cplex, z, data);
+//		cplex = Solver.serviceLevelConstraintOverall(T, sizes, cplex, z, data, 0.9856);
+		
+		
+		
+		// The last three parameters are nbr of steps, size of the steps, and value of first step. 
+		// So: 2, 0.003, 0.98 means it is solved for an overall service level greater then 0.98 and 0.983
+//		solveForDifferentServiceLevels(T, sizes, cplex, z, data, 30, 0.001, 0.925, false);
+		
+		//Use to solve for different relevance scores
+//		solveForDifferentServiceLevels(T, sizes, cplex, z, data, 50, 0.001, 0.91, true);
+		
+		//Solver.solveForDifferentCapcityLevels(T, sizes, cplex, x, data, 40, 0.001, 0.20);
+
+		
+		/** This is the end of the model building part**/ 
+		
+		// Export model
+		cplex.exportModel("Model.lp");
+		
+		// Solve the model.
+		cplex.solve();
+
+		// Query the solution.
+		if (cplex.getStatus() == IloCplex.Status.Optimal)
+		{
+			//Below are some different options to analyze the solution
+			
+			System.out.println("Found optimal solution!");
+			System.out.println("Objective = " + cplex.getObjValue());
+			System.out.println(Math.round(cplex.getObjValue()));
+			
+			
+			// Copy the solution into a different array
+			int [][][] zSolution = new int[T[1]][n][size];
+			int [][][][] xSolution = new int[T[1]][n][size][2];
+			int [] ySolution = new int[n];
+			
+			for (int i = 0; i < n; i ++) {
+				ySolution[i] = (int) cplex.getValue(y[i]);
+				for (int t = T[0]; t < T[1]; t++) {
+					for (int s = 0; s < size; s++) {
+						HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+						Product prod = chunk.get(sizes[s]);
+						if (prod != null) {
+							zSolution[t][i][s] = (int) cplex.getValue(z[t][i][s]);
+							xSolution[t][i][s][0] = (int) cplex.getValue(x[t][i][s][0]);
+							xSolution[t][i][s][1] = (int) cplex.getValue(x[t][i][s][1]);
+						}
+					}
+				}
+			}
+			
+			
+			/** Set output parameters here */
+			boolean showWeeklyCapasity = true;
+			boolean showWeeklyServiceLevel = true;
+			
+			
+			//Calculate service level
+			int totDemand = 0;
+			int fulfilledDemand = 0;
+			
+			double totCapasityUsed = 0;
+			
+			
+			for (int t = T[0]; t < T[1]; t++) {
+				double capasityUsed = 0;
+				int totDemandWeekly = 0;
+				int fulfilledDemandWeekly = 0;
+				
+				for (int i = 0; i < n; i ++) {
+					for (int s = 0; s < size; s++) {
+						HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+						Product prod = chunk.get(sizes[s]);
+						if (prod != null) {
+							totDemand += prod.getPredictedDemand(t);
+							fulfilledDemand += zSolution[t][i][s];
+							
+							totDemandWeekly += prod.getPredictedDemand(t);
+							fulfilledDemandWeekly += zSolution[t][i][s];
+							
+							
+							if (prod.getPredictedDemand(t) < zSolution[t][i][s]) {
+								System.out.println("Demand small then amount sold for " + chunkNames.get(i) + sizes[s]+ " in week " + t);
+								System.out.println("Demand is  " + prod.getPredictedDemand(t) + " and sales is  " + zSolution[t][i][s] );
+							}
+							
+							totCapasityUsed += zSolution[t][i][s] * prod.getAverageAverageM3();
+							capasityUsed += zSolution[t][i][s] * prod.getAverageAverageM3();
+						}
+					}
+				}
+				if (showWeeklyCapasity) {
+				System.out.println("The capacity used in week " + t + "  is: "+ capasityUsed );
+				System.out.println("The percentage of capacity used in week " + t + "is: "+ capasityUsed / 2700  );
+				}
+				
+				if (showWeeklyServiceLevel) {
+					System.out.println("The amount of goods sold in week " + t + "is: "+fulfilledDemandWeekly );
+					System.out.println("The amount of goods demanded in week " + t + " is: "+totDemandWeekly );
+					System.out.println("The servicelevel in week " + t + " is: "+ ((double) fulfilledDemandWeekly /totDemandWeekly) );
+				}
+				
+				if (showWeeklyCapasity || showWeeklyServiceLevel) {
+					System.out.println();
+				}
+			}
+			
+			System.out.println("The amount of goods sold is: "+fulfilledDemand );
+			System.out.println("The amount of goods demanded is: "+totDemand );
+			System.out.println("The servicelevel over the whole period is: "+ ((double) fulfilledDemand /totDemand) );
+			
+			
+			System.out.println("The capacity used is: "+totCapasityUsed );
+			System.out.println("The percentage of capacity used is: "+ totCapasityUsed / (2700 * T[1]) );
+
+
+			
+			
+			
+			//OLD FUNCTIONS
+			//	View the capacity per week
+			//capacityCheck(T, sizes, cplex, x, data);
+			
+			// View the service level per category over the full years
+//			getRevenue(T, sizes, cplex, z, data);
+			
+			// View the service level per category over the full years
+//			Solver.serviceLevel(T, sizes, cplex, z, data);
+			
+			
+			// View the relavance score for each week and overall the weeks
+//			relevanceScore(T, sizes, cplex, z, data);
+
+			
+			//	View the service level per category per week. 
+			//  The last parameter is printAll. If true it prints for all weeks is false it only prints the weeks with service level <100.
+//			Solver.serviceLevelWeekly(T, sizes, cplex, z, data, false);
+			
+			
+			//	View the results of 2018 projected on 2019
+			//ArrayList<HashMap<String, HashMap<String, Product>>> dt2019 = readData(new ArrayList<Integer>(Arrays.asList(2019)));
+			//projectedOn2019(T, sizes, cplex, z, data, dt2019.get(0));
+			
+			
+			//	Write the excel file to a excel file
+			//writeSolutionToDucument(cplex, z, y, data);
+			
+		}
+		else
+		{
+			System.out.println("No optimal solution found");
+		}
+	}
+	
 	
 	public static void simulationMain(int[] T, String[] sizes,
 			HashMap<String, HashMap<String, Product>> data,
@@ -183,156 +459,40 @@ public class Simulation {
 
 
 		System.out.println("This is the end of the simulation main method");	
-	}
+	}	
 	
-	
-	
-	public IloCplex buildModelOneWeek(int t, String[] sizes, ArrayList<Integer> fixedY, int[][] inventory,
-			ForecastDemand forecastDemand, SimulateDemand simulateDemand,
-			ArrayList<HashMap<String, HashMap<String, Product>>> data) throws IloException {
-		
-		IloCplex cplex = new IloCplex();
-		//TODO: Get correct chunk names
-		int size = sizes.length;
-		ArrayList<String> chunkNames = new ArrayList<String>(data.get(0).keySet());
-		int n = chunkNames.size();
-		
-		IloNumVar [][][] x = new IloNumVar[n][size][2];
-		IloNumVar [][] z = new IloNumVar[n][size];
-		IloNumVar [][] u = new IloNumVar[n][size];
-		IloNumVar [] y = new IloNumVar[n];
-		
-		//Get the simulated demand for this week
-//		data = simulateDemand.simulateDemand();
-		//TODO: need to add the demand to data
-		//TODO: format the simulated demand output to fit chuck and sizes. 
-		
-		//Add variables to the model
-		for (int i = 0; i < n; i ++) {
-			y[i] = cplex.boolVar("y(" + chunkNames.get(i) + ")");
-			
-			//If the chunk has already be stored somewhere if must be stored at the same place. 
-			if (fixedY.get(i) != null) {
-				if (fixedY.get(i) == 1) {
-					y[i].setLB(0.9);
-				}else {
-					y[i].setUB(0.1);
-				}
-			}
-			
-			for (int s = 0; s < size; s++) {
-				//TODO: Get correct chunks
-				HashMap<String, Product> chunk = data.get(2).get(chunkNames.get(i));
-				Product prod = chunk.get(sizes[s]);
-				//TODO: when is a product null? If it has not been sold previously?
-				if (prod != null) {
-					x[i][s][0] = cplex.intVar(0, Integer.MAX_VALUE, "x(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + "," + 0 + ")");
-					x[i][s][1] = cplex.intVar(0, Integer.MAX_VALUE, "x(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + "," + 1 + ")");
-					z[i][s] = cplex.intVar(0, prod.getSales(t), "z(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + ")");
-					u[i][s] = cplex.intVar(0, Integer.MAX_VALUE, "u(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + ")");
-				}	
-			}
-		}
-		
-		//create objective function
-		IloNumExpr objExpr = cplex.constant(0);
-		
-		for (int i = 0; i < n; i ++) {
-			// TODO: not sure if get(2) is correct here 
-			HashMap<String, Product> chunk = data.get(2).get(chunkNames.get(i));
-			for (int s = 0; s < size; s++) {
-				Product prod = chunk.get(sizes[s]);
-				if (prod != null) {
-					objExpr =  cplex.sum(objExpr, cplex.prod(z[i][s], prod.getAveragePrice(t)));
-				}
-			}
-		}
-		cplex.addMaximize(objExpr);
-		
-		//Add capacity constraint
-		int cap0 = 3000 * 15 / 100;
-		int cap1 = 15000 * 15 / 100;
-		IloNumExpr capacity0 = cplex.constant(0);
-		IloNumExpr capacity1 = cplex.constant(0);
-		for (int i = 0; i < n; i ++) {
-			HashMap<String, Product> chunk = data.get(2).get(chunkNames.get(i));
-			for (int s = 0; s < size; s++) {
-				Product prod = chunk.get(sizes[s]);
-				if (prod != null) {
-					capacity0 = cplex.sum(capacity0, cplex.prod(prod.getAverageM3(t), x[i][s][0]));
-					capacity1 = cplex.sum(capacity1, cplex.prod(prod.getAverageM3(t), x[i][s][1]));
-				}
-			}
-		}
-		cplex.addLe(capacity0, cap0, "Capacity constraint for small warehouse");
-		cplex.addLe(capacity1, cap1, "Capacity constraint for big warehouse");
-		
-		//Add storage balancing constraint
-		for (int i = 0; i < n; i ++) {
-			HashMap<String, Product> chunk = data.get(2).get(chunkNames.get(i));
-			for (int s = 0; s < size; s++) {
-				Product prod = chunk.get(sizes[s]);
-				if (prod != null) {
-					IloNumExpr storage = cplex.constant(0);
-					storage = cplex.sum(storage, inventory[i][s] );
-					storage = cplex.sum(storage, x[i][s][0]);
-					storage = cplex.sum(storage, x[i][s][1]);
-					storage = cplex.diff(storage, z[i][s]);
-					cplex.addEq(u[i][s], storage, "Storage balancing constraint for product" +chunkNames.get(i) + "and size "+ sizes[s]);
-				}
-			}
-		}
-		
-		
-		
-		// Solve the model.
-		cplex.solve();
 
-		// Query the solution.
-		if (cplex.getStatus() == IloCplex.Status.Optimal)
-		{
-			//Below are some different options to analyze the solution
-			
-			System.out.println("Found optimal solution!");
-			System.out.println("Objective = " + cplex.getObjValue());
-			
-			
+	
+	/**
+	 * This method reads the data for the years given and returns them in format implemented by Gijs
+	 * @param years An arrayList with the years for which the data needs to be retrieved. 
+	 * @return The data
+	 */
+	public static HashMap<String, HashMap<String, Product>> readData(){
+		File data;
+		File relevanceScore;
+		File warehouseCost;
+		// Check your operating system in order to correctly specify file paths
+		String os = System.getProperty("os.name").toLowerCase();
+		if (os.indexOf("win") >= 0) {
+			data = new File(".\\dataFiles\\dataset.xlsx");
+			relevanceScore = new File(".\\dataFiles\\EUR_BusinessCase_Chunk_RelevanceScore_V2.xlsx");
+			warehouseCost = new File(".\\dataFiles\\EUR_BusinessCase_Sizegroup_Costs.xlsx");
+		}else {
+			data = new File("./dataFiles/dataset.xlsx");
+			relevanceScore = new File("./dataFiles/EUR_BusinessCase_Chunk_RelevanceScore_V2.xlsx");
+			warehouseCost = new File("./dataFiles/EUR_BusinessCase_Sizegroup_Costs.xlsx");
 		}
-		else
-		{
-			System.out.println("No optimal solution found");
-		}		
 		
-		
-		
-		return cplex;
+		HashMap<String, HashMap<String, Product>> dt = new HashMap<String, HashMap<String, Product>>();
+				
+		try {
+			CustomDataReader cdm = new CustomDataReader(data, relevanceScore, warehouseCost);
+			 return cdm.readDataCombined();
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+		return null;
 	}
 	
-	
-	
-	public void simulateOneWeek(ForecastDemand forecastDemand, SimulateDemand simulateDemand) {
-		//Get demand forecast for next week
-		ArrayList<HashMap<String, HashMap<String, Product>>> forcastTplus1 = forecastDemand.forecastOneAhead();
-		
-		//Method to add forecasted demand to the data 
-
-		
-		//Get simulated demand for next week
-		ArrayList<HashMap<String, HashMap<String, Product>>> simulatedDemand = simulateDemand.simulateDemand();
-		
-		//Method to add simulated demand to the data 
-		
-		
-	}
-	
-	interface ForecastDemand {
-		public ArrayList<HashMap<String, HashMap<String, Product>>> forecastOneAhead();
-		public ArrayList<HashMap<String, HashMap<String, Product>>> forecastTwoAhead();
-	}
-	
-	interface SimulateDemand {
-		public ArrayList<HashMap<String, HashMap<String, Product>>> simulateDemand();
-	}
-		
-
 }

@@ -1364,5 +1364,32 @@ public class Solver {
 		}
 		return cplex;
 	}
+	
+	public static IloCplex addCapacityConstraint2020(int[] T, String[] sizes, IloCplex cplex, IloNumVar[][][][] x, 
+			HashMap<String, HashMap<String, Product>> data,
+			double toysPercentageSmall, double toysPercentageBig) throws IloException {
+		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
+		int n = chunkNames.size();
+		int size = sizes.length;
+		
+		for (int t = T[0]; t < T[1]; t++) {
+			IloNumExpr capacity0 = cplex.constant(0);
+			IloNumExpr capacity1 = cplex.constant(0);
+			for (int i = 0; i < n; i ++) {
+				HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+				for (int s = 0; s < size; s++) {
+					Product prod = chunk.get(sizes[s]);
+					if (prod != null) {
+						capacity0 = cplex.sum(capacity0, cplex.prod(prod.getAverageAverageM3(), x[t][i][s][0]));
+						capacity1 = cplex.sum(capacity1, cplex.prod(prod.getAverageAverageM3(), x[t][i][s][1]));
+					}
+				}
+			}
+			cplex.addLe(capacity0, 3000 * toysPercentageSmall, "Capacity constraint for small warehouse");
+			cplex.addLe(capacity1, 15000 * toysPercentageBig, "Capacity constraint for big warehouse");
+		}
+		return cplex;
+	}
+
 		
 }

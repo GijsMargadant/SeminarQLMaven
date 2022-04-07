@@ -270,6 +270,23 @@ public class Product {
 		return sales;
 	}
 	
+	/**
+	 * 
+	 */
+	public int getPredictedDemand(int week) {
+		int season = week % nSeasons;
+		double levelAndTrend = level + (nWeeks + week) * trend;
+		
+		int sales = (int) Math.round(levelAndTrend * seasonalIndices[season]);
+		if (sales < 0) {
+			sales = 0;
+		}
+		
+		return sales;
+	}
+	
+	
+	
 	
 	/**
 	 * This method calculates the mean of a partial array without the need of
@@ -571,6 +588,29 @@ public class Product {
 	public double getAverageM3(int week) {
 		return weeklyAverageM3[week];
 	}
+	
+	/**
+	 * This method returns the average averageM3 for a given week
+	 * This is used for 2020
+	 * @param week goes from 0 to 51
+	 * @return averageM3 as double
+	 */
+	public double getAverageAverageM3() {
+		int count = 0; 
+		double sum = 0; 
+		for (double d : weeklyAverageM3) {
+			if (d > 0.0000000000) {
+				count ++;
+				sum += d;
+			}
+		}
+		
+		if (count == 0) {
+			return 0;
+		}
+		
+		return sum/count;
+	}
 
 	/**
 	 * This method gives the average price for a given week
@@ -579,6 +619,26 @@ public class Product {
 	 */
 	public double getAveragePrice(int week) {
 		return weeklyAveragePrice[week];
+	}
+	
+	/**
+	 * This method gives the average price for a given week
+	 * @param week goes from 1 to 52
+	 * @return average price as double
+	 */
+	public double getAverageAveragePrice() {
+		int count = 0; 
+		double sum = 0; 
+		for (double d : weeklyAveragePrice) {
+			if (d > 0.0000) {
+				count ++;
+				sum += d;
+			}
+		}
+		if (count == 0) {
+			return 0;
+		}
+		return sum/count;
 	}
 
 	/**
