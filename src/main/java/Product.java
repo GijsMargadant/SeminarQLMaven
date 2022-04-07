@@ -119,8 +119,16 @@ public class Product {
 	public void calculateDistributionProperties() {
 		// Find the seasonal indices for each season
 		findSeasonalIndices();
+		if(chunk.equals("Speelmais") && sizeGroup.equals("XS")) {
+			System.out.println("Seasonal indices:");
+			System.out.println(Arrays.toString(seasonalIndices));
+		}
 		// Deseasonalize the data
 		double[] deseasonalizedData = deseasonalizeData();
+		if(chunk.equals("Speelmais") && sizeGroup.equals("XS")) {
+			System.out.println("Seasonal indices:");
+			System.out.println(Arrays.toString(deseasonalizedData));
+		}
 		// Find level and trend by means of ols on deseasonalized data
 		double[] beta = findLevelAndTrend(deseasonalizedData);
 		level = beta[0];
@@ -147,19 +155,23 @@ public class Product {
 		// Initialize an array in which to safe the temporarily seasonal indices.
 		double[] SI = new double[nWeeks];
 		for(int i = 0; i < nWeeks; i++) {
-			// Calculate the moving average mean for each week
-			int lb = Math.max(i - (nSeasons/2), 0);
-			int ub = (int) Math.min(i + Math.ceil((double) nSeasons/2), nWeeks);
-			if(ub - lb < nSeasons) {
-				if(lb == 0) {
-					ub = nSeasons;
-				} else {
-					lb = nWeeks - nSeasons;
+			if(dataPresent[i]) {
+				// Calculate the moving average mean for each week
+				int lb = Math.max(i - (nSeasons/2), 0);
+				int ub = (int) Math.min(i + Math.ceil((double) nSeasons/2), nWeeks);
+				if(ub - lb < nSeasons) {
+					if(lb == 0) {
+						ub = nSeasons;
+					} else {
+						lb = nWeeks - nSeasons;
+					}
 				}
+				double mean = mean(weeklySales, lb, ub);
+				// Calculate seasonal index
+				SI[i] = weeklySales[i] / mean;
+			} else {
+				SI[i] = 0.0;
 			}
-			double mean = mean(weeklySales, lb, ub);
-			// Calculate seasonal index
-			SI[i] = weeklySales[i] / mean;
 		}
 		// Average the seasonal indices for the same periods
 		double sum2 = 0.0;
@@ -167,10 +179,16 @@ public class Product {
 			int n = 0;
 			double sum = 0.0;
 			for(int j = i; j < nWeeks; j+=nSeasons) {
-				sum += SI[j];
-				n++;
+				if(dataPresent[j]) {
+					sum += SI[j];
+					n++;
+				}
 			}
-			seasonalIndices[i] = sum / n;
+			if(n > 0) {
+				seasonalIndices[i] = sum / n;
+			} else {
+				seasonalIndices[i] = 0;
+			}
 			sum2 += seasonalIndices[i];
 		}
 		// Normalize the indices
@@ -190,7 +208,11 @@ public class Product {
 		double[] result = new double[nWeeks];
 		for(int i = 0; i < nSeasons; i++) {
 			for(int j = i; j < nWeeks; j+=nSeasons) {
-				result[j] = weeklySales[j] / seasonalIndices[i];
+				if(dataPresent[j]) {
+					result[j] = weeklySales[j] / seasonalIndices[i];
+				} else {
+					result[j] = 0;
+				}
 			}
 		}
 		return result;
@@ -206,6 +228,10 @@ public class Product {
 		double[] result = new double[2];
 		// x will in our case be the time
 		double[] x = IntStream.range(0, nWeeks).mapToDouble(i -> (double) i).toArray();
+		if(chunk.equals("Speelmais") && sizeGroup.equals("XS")) {
+			System.out.println("x:");
+			System.out.println(Arrays.toString(x));
+		}
 
         // first calculate the mean of x and y
         double sumx = 0.0;
@@ -216,7 +242,12 @@ public class Product {
         }
         double xbar = sumx / nWeeks;
         double ybar = sumy / nWeeks;
-
+        
+		if(chunk.equals("Speelmais") && sizeGroup.equals("XS")) {
+			System.out.println("xbar, ybar:");
+			System.out.println(xbar + ", " + ybar);
+		}
+        
         // now calculate the slope and level cov(x,x) and cov(x,y)
         double xxbar = 0.0;
         double xybar = 0.0;
@@ -306,11 +337,23 @@ public class Product {
 	
 	
 	private double stdev2(double[] arr, double mean) {
-		double sumsq = 0.0;
-		for(double x : arr) {
-			sumsq += Math.sqrt(x - mean);
+		double sumsq = 0;
+		for(int i = 0; i < arr.length; i++) {
+			double x = arr[i] - mean;
+			sumsq += x*x;
+			
+//			if(chunk.equals("Speelmais") && sizeGroup.equals("XS")) {
+//				System.out.println("sumsq");
+//				System.out.println(sumsq);
+//			}
 		}
-		return sumsq / arr.length;
+		
+//		if(chunk.equals("Speelmais") && sizeGroup.equals("XS")) {
+//			System.out.println("sumsq");
+//			System.out.println(sumsq);
+//		}
+		
+		return Math.sqrt(sumsq / arr.length);
 	}
 	
 	
