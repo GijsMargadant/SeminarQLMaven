@@ -28,16 +28,16 @@ public class Solver {
 		String[] sizes = {"XXXS", "XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"};
 		
 		//read data for year 2018
-		ArrayList<Integer> years = new ArrayList<Integer>(Arrays.asList(2018));
-		ArrayList<HashMap<String, HashMap<String, Product>>> dt = readData(new ArrayList<Integer>(Arrays.asList(2018)));
+		ArrayList<Integer> years = new ArrayList<Integer>(Arrays.asList(2020));
+		ArrayList<HashMap<String, HashMap<String, Product>>> dt = readData(new ArrayList<Integer>(Arrays.asList(2020)));
 
 		//Try to build and solve the model.
 		
 		try
 		{
-			//solve(52, sizes, dt.get(0));
+			solve(52, sizes, dt.get(0));
 //			solveForSubperiod(new int[]{0,52}, sizes, dt.get(0));
-			solveForSubperiod(new int[]{45,48}, sizes, dt.get(0));
+//			solveForSubperiod(new int[]{45,48}, sizes, dt.get(0));
 		}
 		catch (IloException e)
 		{
@@ -58,11 +58,11 @@ public class Solver {
 		// Check your operating system in order to correctly specify file paths
 		String os = System.getProperty("os.name").toLowerCase();
 		if (os.indexOf("win") >= 0) {
-			data = new File(".\\dataFiles\\dataset.xlsx");
+			data = new File(".\\dataFiles\\Forecast with dummy 45 - 51 - Copy.xlsx");
 			relevanceScore = new File(".\\dataFiles\\EUR_BusinessCase_Chunk_RelevanceScore_V2.xlsx");
 			warehouseCost = new File(".\\dataFiles\\EUR_BusinessCase_Sizegroup_Costs.xlsx");
 		}else {
-			data = new File("./dataFiles/dataset.xlsx");
+			data = new File("./dataFiles/Forecast with dummy 45 - 51 - Copy.xlsx");
 			relevanceScore = new File("./dataFiles/EUR_BusinessCase_Chunk_RelevanceScore_V2.xlsx");
 			warehouseCost = new File("./dataFiles/EUR_BusinessCase_Sizegroup_Costs.xlsx");
 		}
@@ -83,7 +83,7 @@ public class Solver {
 		// Create the model.
 		IloCplex cplex = new IloCplex ();
 		
-		int maxDemandProduct = 60012 +1 ;
+		int maxDemandProduct = 100000 ;
 		
 		double cap0 = 3000*15/100;
 		double cap1 = 15000*15/100;
@@ -200,7 +200,7 @@ public class Solver {
 			
 			
 			//	Write the excel file to a excel file
-			//writeSolutionToDucument(cplex, z, y, data);
+			writeSolutionToDucument(cplex, z, y, data);
 			
 		}
 		else
@@ -377,7 +377,7 @@ public class Solver {
 		
 		CustomDataWriter cdw = new CustomDataWriter(file);
 		try {
-			cdw.writeSolutionToExcelFile(cplex, y, z, data, "Solution_SatisfactionLevels");
+			cdw.writeSolutionToExcelFile(cplex, y, z, data, "Solution_Forecast_2020");
 		} catch (UnknownObjectException e) {
 			e.printStackTrace();
 		} catch (IloException e) {

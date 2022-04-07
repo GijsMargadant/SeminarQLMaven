@@ -46,11 +46,11 @@ public class StochasticSolver {
 		// Check your operating system in order to correctly specify file paths
 		String os = System.getProperty("os.name").toLowerCase();
 		if (os.indexOf("win") >= 0) {
-			data = new File(".\\dataFiles\\Forecast with dummy 45 - 51.xlsx");
+			data = new File(".\\dataFiles\\Forecast with dummy 45 - 51 - Copy.xlsx");
 			relevanceScore = new File(".\\dataFiles\\EUR_BusinessCase_Chunk_RelevanceScore_V2.xlsx");
 			warehouseCost = new File(".\\dataFiles\\EUR_BusinessCase_Sizegroup_Costs.xlsx");
 		}else {
-			data = new File("./dataFiles/Forecast with dummy 45 - 51.xlsx");
+			data = new File("./dataFiles/Forecast with dummy 45 - 51 - Copy.xlsx");
 			relevanceScore = new File("./dataFiles/EUR_BusinessCase_Chunk_RelevanceScore_V2.xlsx");
 			warehouseCost = new File("./dataFiles/EUR_BusinessCase_Sizegroup_Costs.xlsx");
 		}
