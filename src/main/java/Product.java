@@ -126,10 +126,10 @@ public class Product {
 		level = beta[0];
 		trend = beta[1];
 		// Final cleaning
-		delevelAndDetrendData(deseasonalizedData);
+		detrendData(deseasonalizedData);
 		// calculate the mean of the cleaned data
 		cleanedMean = mean(cleanedSales);
-		cleanedStdev = stdev(cleanedSales, cleanedMean);
+		cleanedStdev = stdev2(cleanedSales, cleanedMean);
 	}
 	
 	
@@ -249,6 +249,19 @@ public class Product {
 	
 	
 	/**
+	 * This method only removes the trend, but keeps the level
+	 * @param deseasonalizedData
+	 */
+	private void detrendData(double[] deseasonalizedData) {
+		cleanedSales = new double[nWeeks];
+		for(int i = 0; i < nWeeks; i++) {
+			cleanedSales[i] = deseasonalizedData[i] / (level + i * trend) * level;
+		}
+	}
+	
+	
+	
+	/**
 	 * This method 
 	 * @param week, the week for which a sales value needs to be estimated after week 52 of 2019.
 	 * So week 0 means week 1 of 2020
@@ -257,7 +270,7 @@ public class Product {
 	 */
 	public int pullRandomSales(int week, Random r) {
 		int season = week % nSeasons;
-		double levelAndTrend = level + (nWeeks + week) * trend;
+		double trendVal = (nWeeks + week) * trend;
 		
 		// Pull from normal distribution
 		double x = r.nextGaussian(cleanedMean, cleanedStdev);
@@ -265,7 +278,7 @@ public class Product {
 			x = 0;
 		}
 		
-		int sales = (int) Math.round(levelAndTrend * seasonalIndices[season] * x);
+		int sales = (int) Math.round(trendVal * seasonalIndices[season] * x);
 		
 		return sales;
 	}
@@ -289,6 +302,15 @@ public class Product {
 			}
 		}
 		return mean/n;
+	}
+	
+	
+	private double stdev2(double[] arr, double mean) {
+		double sumsq = 0.0;
+		for(double x : arr) {
+			sumsq += Math.sqrt(x - mean);
+		}
+		return sumsq / arr.length;
 	}
 	
 	
