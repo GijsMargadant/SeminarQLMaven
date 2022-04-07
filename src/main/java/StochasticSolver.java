@@ -9,10 +9,6 @@ import ilog.concert.IloNumExpr;
 import ilog.concert.IloNumVar;
 import ilog.cplex.IloCplex;
 
-import org.apache.commons.math.MathException;
-import org.apache.commons.math.distribution.NormalDistribution;
-import org.apache.commons.math.distribution.NormalDistributionImpl;
-
 public class StochasticSolver {
 
 	public static void main(String[] args) throws FileNotFoundException
@@ -74,7 +70,8 @@ public class StochasticSolver {
 		// Create the model.
 		IloCplex cplex = new IloCplex ();
 		
-		NormalDistribution norDst = new NormalDistributionImpl();
+		double criticalValue95 = 1.96;
+		double criticalValue98 = 2.3263;
 		
 		int maxDemandProduct = 100000 ;
 		
