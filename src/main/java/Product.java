@@ -270,9 +270,7 @@ public class Product {
 		return sales;
 	}
 	
-	/**
-	 * 
-	 */
+	
 	public int getPredictedDemand(int week) {
 		int season = week % nSeasons;
 		double levelAndTrend = level + (nWeeks + week) * trend;
@@ -589,8 +587,19 @@ public class Product {
 		return weeklyAverageM3[week];
 	}
 	
+	
+
 	/**
-	 * This method returns the average averageM3 for a given week
+	 * This method gives the average price for a given week
+	 * @param week goes from 1 to 52
+	 * @return average price as double
+	 */
+	public double getAveragePrice(int week) {
+		return weeklyAveragePrice[week];
+	}
+	
+	/**
+	 * This method returns the average averageM3
 	 * This is used for 2020
 	 * @param week goes from 0 to 51
 	 * @return averageM3 as double
@@ -611,19 +620,11 @@ public class Product {
 		
 		return sum/count;
 	}
-
-	/**
-	 * This method gives the average price for a given week
-	 * @param week goes from 1 to 52
-	 * @return average price as double
-	 */
-	public double getAveragePrice(int week) {
-		return weeklyAveragePrice[week];
-	}
 	
 	/**
-	 * This method gives the average price for a given week
-	 * @param week goes from 1 to 52
+	 * This method returns the average average price
+	 * This is used for 2020
+	 * 	 * @param week goes from 1 to 52
 	 * @return average price as double
 	 */
 	public double getAverageAveragePrice() {
