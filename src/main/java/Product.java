@@ -108,20 +108,6 @@ public class Product {
 		Arrays.fill(weeklyAveragePrice, 0.0);
 	}
 	
-	/**
-	 * This method computes the variance between two sales data points. It assumes that
-	 * it is just a sample, so it divides by n-1 instead of n. 2020 is not taken into
-	 * account since it is to different from the rest of the data.
-	 * @param week, Week 0 is the first week of the year
-	 * @return
-	 */
-	public double getSalesVarianceOfWeek(int week) {
-		int a = weeklySales[week];
-		int b = weeklySales[week + nWeeks];
-		int diff = b - a;
-		return diff * diff * 0.5;
-	}
-	
 	//-------------------------------------------------------------------
 	// This part contains the code to create a distribution for the data
 	//-------------------------------------------------------------------
@@ -133,25 +119,17 @@ public class Product {
 	public void calculateDistributionProperties() {
 		// Find the seasonal indices for each season
 		findSeasonalIndices();
-		if(chunk.equals("Telraam") && sizeGroup.equals("S")) {
-			System.out.println("Seasonal indices:");
-			System.out.println(Arrays.toString(seasonalIndices));
-		}
 		// Deseasonalize the data
 		double[] deseasonalizedData = deseasonalizeData();
-		if(chunk.equals("Telraam") && sizeGroup.equals("S")) {
-			System.out.println("Deseasonalized data:");
-			System.out.println(Arrays.toString(deseasonalizedData));
-		}
 		// Find level and trend by means of ols on deseasonalized data
 		double[] beta = findLevelAndTrend(deseasonalizedData);
 		level = beta[0];
 		trend = beta[1];
 		// Final cleaning
-		detrendData(deseasonalizedData);
+		delevelAndDetrendData(deseasonalizedData);
 		// calculate the mean of the cleaned data
 		cleanedMean = mean(cleanedSales);
-		cleanedStdev = stdev2(cleanedSales, cleanedMean);
+		cleanedStdev = stdev(cleanedSales, cleanedMean);
 	}
 	
 	
@@ -169,23 +147,19 @@ public class Product {
 		// Initialize an array in which to safe the temporarily seasonal indices.
 		double[] SI = new double[nWeeks];
 		for(int i = 0; i < nWeeks; i++) {
-			if(dataPresent[i]) {
-				// Calculate the moving average mean for each week
-				int lb = Math.max(i - (nSeasons/2), 0);
-				int ub = (int) Math.min(i + Math.ceil((double) nSeasons/2), nWeeks);
-				if(ub - lb < nSeasons) {
-					if(lb == 0) {
-						ub = nSeasons;
-					} else {
-						lb = nWeeks - nSeasons;
-					}
+			// Calculate the moving average mean for each week
+			int lb = Math.max(i - (nSeasons/2), 0);
+			int ub = (int) Math.min(i + Math.ceil((double) nSeasons/2), nWeeks);
+			if(ub - lb < nSeasons) {
+				if(lb == 0) {
+					ub = nSeasons;
+				} else {
+					lb = nWeeks - nSeasons;
 				}
-				double mean = mean(weeklySales, lb, ub);
-				// Calculate seasonal index
-				SI[i] = weeklySales[i] / mean;
-			} else {
-				SI[i] = 0.0;
 			}
+			double mean = mean(weeklySales, lb, ub);
+			// Calculate seasonal index
+			SI[i] = weeklySales[i] / mean;
 		}
 		// Average the seasonal indices for the same periods
 		double sum2 = 0.0;
@@ -193,16 +167,10 @@ public class Product {
 			int n = 0;
 			double sum = 0.0;
 			for(int j = i; j < nWeeks; j+=nSeasons) {
-				if(dataPresent[j]) {
-					sum += SI[j];
-					n++;
-				}
+				sum += SI[j];
+				n++;
 			}
-			if(n > 0) {
-				seasonalIndices[i] = sum / n;
-			} else {
-				seasonalIndices[i] = 0;
-			}
+			seasonalIndices[i] = sum / n;
 			sum2 += seasonalIndices[i];
 		}
 		// Normalize the indices
@@ -222,11 +190,7 @@ public class Product {
 		double[] result = new double[nWeeks];
 		for(int i = 0; i < nSeasons; i++) {
 			for(int j = i; j < nWeeks; j+=nSeasons) {
-				if(dataPresent[j]) {
-					result[j] = weeklySales[j] / seasonalIndices[i];
-				} else {
-					result[j] = 0;
-				}
+				result[j] = weeklySales[j] / seasonalIndices[i];
 			}
 		}
 		return result;
@@ -246,42 +210,22 @@ public class Product {
         // first calculate the mean of x and y
         double sumx = 0.0;
         double sumy = 0.0;
-        int n = 0;
         for (int i = 0; i < nWeeks; i++) {
-        	if(dataPresent[i]) {
             sumx  += x[i];
             sumy  += deseasonalizedData[i];
-            n++;
-        	}
         }
-        double xbar = sumx / n;
-        double ybar = sumy / n;
-        
-		if(chunk.equals("Telraam") && sizeGroup.equals("S")) {
-			System.out.println("xbar, ybar:");
-			System.out.println(xbar + ", " + ybar);
-		}
-        
+        double xbar = sumx / nWeeks;
+        double ybar = sumy / nWeeks;
+
         // now calculate the slope and level cov(x,x) and cov(x,y)
         double xxbar = 0.0;
         double xybar = 0.0;
         for (int i = 0; i < nWeeks; i++) {
-        	if(dataPresent[i]) {
-                xxbar += (x[i] - xbar) * (x[i] - xbar);
-                xybar += (x[i] - xbar) * (deseasonalizedData[i] - ybar);
-        	}
+            xxbar += (x[i] - xbar) * (x[i] - xbar);
+            xybar += (x[i] - xbar) * (deseasonalizedData[i] - ybar);
         }
         double slope  = xybar / xxbar;
         double intercept = ybar - slope * xbar;
-        
-		if(chunk.equals("Telraam") && sizeGroup.equals("S")) {
-			System.out.println("xybar, xxbar:");
-			System.out.println(xybar + ", " + xxbar);
-		}
-		if(chunk.equals("Telraam") && sizeGroup.equals("S")) {
-			System.out.println("slope, icept:");
-			System.out.println(slope + ", " + intercept);
-		}
         
         result[0] = intercept;
         result[1] = slope;
@@ -305,19 +249,6 @@ public class Product {
 	
 	
 	/**
-	 * This method only removes the trend, but keeps the level
-	 * @param deseasonalizedData
-	 */
-	private void detrendData(double[] deseasonalizedData) {
-		cleanedSales = new double[nWeeks];
-		for(int i = 0; i < nWeeks; i++) {
-			cleanedSales[i] = deseasonalizedData[i] / (level + i * trend) * level;
-		}
-	}
-	
-	
-	
-	/**
 	 * This method 
 	 * @param week, the week for which a sales value needs to be estimated after week 52 of 2019.
 	 * So week 0 means week 1 of 2020
@@ -326,18 +257,35 @@ public class Product {
 	 */
 	public int pullRandomSales(int week, Random r) {
 		int season = week % nSeasons;
-		double trendVal = (nWeeks + week) * trend;
+		double levelAndTrend = level + (nWeeks + week) * trend;
 		
 		// Pull from normal distribution
-		double x = r.nextGaussian(cleanedMean, cleanedStdev);
+		double x = r.nextGaussian() * cleanedStdev +  cleanedMean;
 		if(x < 0) {
 			x = 0;
 		}
 		
-		int sales = (int) Math.round(trendVal * seasonalIndices[season] * x);
+		int sales = (int) Math.round(levelAndTrend * seasonalIndices[season] * x);
 		
 		return sales;
 	}
+	
+	/**
+	 * 
+	 */
+	public int getPredictedDemand(int week) {
+		int season = week % nSeasons;
+		double levelAndTrend = level + (nWeeks + week) * trend;
+		
+		int sales = (int) Math.round(levelAndTrend * seasonalIndices[season]);
+		if (sales < 0) {
+			sales = 0;
+		}
+		
+		return sales;
+	}
+	
+	
 	
 	
 	/**
@@ -358,16 +306,6 @@ public class Product {
 			}
 		}
 		return mean/n;
-	}
-	
-	
-	private double stdev2(double[] arr, double mean) {
-		double sumsq = 0;
-		for(int i = 0; i < arr.length; i++) {
-			double x = arr[i] - mean;
-			sumsq += x*x;
-		}
-		return Math.sqrt(sumsq / arr.length);
 	}
 	
 	
@@ -650,6 +588,29 @@ public class Product {
 	public double getAverageM3(int week) {
 		return weeklyAverageM3[week];
 	}
+	
+	/**
+	 * This method returns the average averageM3 for a given week
+	 * This is used for 2020
+	 * @param week goes from 0 to 51
+	 * @return averageM3 as double
+	 */
+	public double getAverageAverageM3() {
+		int count = 0; 
+		double sum = 0; 
+		for (double d : weeklyAverageM3) {
+			if (d > 0.0000000000) {
+				count ++;
+				sum += d;
+			}
+		}
+		
+		if (count == 0) {
+			return 0;
+		}
+		
+		return sum/count;
+	}
 
 	/**
 	 * This method gives the average price for a given week
@@ -658,6 +619,26 @@ public class Product {
 	 */
 	public double getAveragePrice(int week) {
 		return weeklyAveragePrice[week];
+	}
+	
+	/**
+	 * This method gives the average price for a given week
+	 * @param week goes from 1 to 52
+	 * @return average price as double
+	 */
+	public double getAverageAveragePrice() {
+		int count = 0; 
+		double sum = 0; 
+		for (double d : weeklyAveragePrice) {
+			if (d > 0.0000) {
+				count ++;
+				sum += d;
+			}
+		}
+		if (count == 0) {
+			return 0;
+		}
+		return sum/count;
 	}
 
 	/**
