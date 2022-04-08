@@ -54,14 +54,14 @@ public class TestRandomDemand {
 		
 		getData();
 		
-		String name = "data2";
-		String file = "C:\\Users\\gijsm\\Documents\\DOCUMENTEN\\School\\SeminarCaseStudy\\SolutionFiles\\" + name + ".xlsx";
-		try {
-			writeData(file);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+//		String name = "data2";
+//		String file = "C:\\Users\\gijsm\\Documents\\DOCUMENTEN\\School\\SeminarCaseStudy\\SolutionFiles\\" + name + ".xlsx";
+//		try {
+//			writeData(file);
+//		} catch (IOException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
 	}
 	
 	
