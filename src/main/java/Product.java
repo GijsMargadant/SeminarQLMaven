@@ -341,6 +341,31 @@ public class Product {
 	
 	
 	/**
+	 * This method calculates a random sales value for a given week based on
+	 * the Poisson distribution.
+	 * @param week
+	 * @param r
+	 * @return
+	 */
+	public int pullRandomSalesPoisson(int week, Random r) {
+		int season = week % nSeasons;
+		double trendVal = (nWeeks + week) * trend;
+		
+		double p = Math.exp(-cleanedMean);
+		int i = 0;
+		double U = r.nextDouble();
+		double F = p;
+		
+		while(U >= F) {
+			i++;
+			p *= cleanedMean / (i);
+			F += p;
+		}
+		return (int) Math.round(trendVal * seasonalIndices[season] * i);
+	}
+	
+	
+	/**
 	 * This method calculates the mean of a partial array without the need of
 	 * Copying the partial array to a new array.
 	 * @param arr
