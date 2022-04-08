@@ -715,7 +715,7 @@ public class Simulation {
   
         // spreadsheet object
         XSSFSheet spreadsheet
-            = workbook.createSheet(" Results Simulation version 1.1");
+            = workbook.createSheet("Results Simulation version 1.1");
   
         // creating a row object
         XSSFRow row;
