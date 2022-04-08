@@ -100,7 +100,8 @@ public class CustomDataWriter {
 						cell.setCellValue(warehouseVar);
 					} else {
 						if(data.get(chunkName).containsKey(sizeName)) {
-							cell.setCellValue(cplex.getValue(z[row-4][chunk][size]) / (double) data.get(chunkName).get(sizeName).getSales(row-4));
+							cell.setCellValue(cplex.getValue(z[row-4][chunk][size]));
+//							cell.setCellValue(cplex.getValue(z[row-4][chunk][size]) / (double) data.get(chunkName).get(sizeName).getSales(row-4));
 						} else {
 							cell.setCellValue("NA");
 						}
