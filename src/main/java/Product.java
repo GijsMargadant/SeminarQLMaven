@@ -329,7 +329,7 @@ public class Product {
 		double trendVal = (nWeeks + week) * trend;
 		
 		// Pull from normal distribution
-		double x = r.nextGaussian(cleanedMean, cleanedStdev);
+		double x = r.nextGaussian() * cleanedStdev + cleanedMean;
 		if(x < 0) {
 			x = 0;
 		}
