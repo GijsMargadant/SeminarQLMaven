@@ -294,11 +294,12 @@ public class Product {
 		// Pull from normal distribution
 		double x = r.nextGaussian() * cleanedStdev +  cleanedMean;
 		
-		if (cleanedStdev> 1) {
+		/*
+		if (cleanedStdev> 8) {
 			System.out.println("cleanedStdev is " + cleanedStdev + "cleanedMean is " + cleanedMean);
 			System.out.println(" levelAndTrend is " + levelAndTrend + " seasonalIndices[season] is " + seasonalIndices[season] + " x is " + x );
 		}
-
+		 */
 		int sales = Math.max(0, (int) Math.round(levelAndTrend * seasonalIndices[season] + x)) ;
 		
 		return sales;
@@ -314,7 +315,29 @@ public class Product {
 		return sales;
 	}
 	
-	
+	/**
+	 * This method calculates a random sales value for a given week based on
+	 * the Poisson distribution.
+	 * @param week
+	 * @param r
+	 * @return
+	 */
+	public int pullRandomSalesPoisson(int week, Random r) {
+		int season = week % nSeasons;
+		double trendVal = (nWeeks + week) * trend;
+		
+		double p = Math.exp(-cleanedMean);
+		int i = 0;
+		double U = r.nextDouble();
+		double F = p;
+		
+		while(U >= F) {
+			i++;
+			p *= cleanedMean / (i);
+			F += p;
+		}
+		return (int) Math.round(trendVal * seasonalIndices[season] * i);
+	}
 	
 	
 	/**
