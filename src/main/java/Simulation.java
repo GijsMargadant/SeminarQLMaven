@@ -28,90 +28,45 @@ public class Simulation {
 		// Define all the size groups
 		String[] sizes = {"XXXS", "XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"};
 				
-		//read data for year 2018
-//		ArrayList<Integer> years = new ArrayList<Integer>(Arrays.asList(2018, 2019,2020));
-//		ArrayList<Integer> years = new ArrayList<Integer>(Arrays.asList(2020));
-//		ArrayList<HashMap<String, HashMap<String, Product>>> dt = Solver.readData(years);
 		HashMap<String, HashMap<String, Product>> dt = Simulation.readData();
 		
 		
 		System.out.println("De data is geladen");
-		
-		
-		/*
-		int size = sizes.length;
-		ArrayList<String> chunkNames = new ArrayList<String>(dt.keySet());
-		int n = chunkNames.size();
-		
-		for (int i = 0; i < n; i ++) {
-			for (int t = 0; t < 1; t++) {
-				for (int s = 0; s < size; s++) {
-					HashMap<String, Product> chunk = dt.get(chunkNames.get(i));
-					Product prod = chunk.get(sizes[s]);
-					if (prod != null) {
-						if (prod.getAverageAverageM3() == 1) {
-							System.out.println(prod.getAverageAverageM3());
-							for (int j =0; j < 104; j ++) {
-								System.out.print(prod.getAverageM3(j));
-								
-							}
-							System.out.println();
 
-						}
-						
-						if (Double.isNaN(prod.getAverageAverageM3())) {
-							System.out.println(prod.getAverageAverageM3());
-							System.out.println(prod.getAverageM3(t));
-						}
-					}
-				}
-			}
-		}
-		*/
 		
-		solve2020(new int[]{0,52}, sizes, dt);
+		HashMap<String, Object> parameters = new HashMap<String, Object>(); 
+		//Set certain parameters for the model;
+		
+		//Demand options 
+		parameters.put("usePlusXInSales", true);
+		parameters.put("usePoisson", false);
+		
+		//Printing options 
+		parameters.put("printExcelFormatSimulationResults", false);
+		parameters.put("printSimulationResults", false);
+		parameters.put("showWeeklyCapasity", false);
+		parameters.put("showWeeklyServiceLevel", false);
+		
+		//Export to excel options 
+		parameters.put("exportSimulationResults", true);
+		parameters.put("fileName", "results");
+		
+		// Simulation options
+		parameters.put("nbrSimulations" , 100);
+		
+		
+		
 
 		
 		
-		/*
-		int[] T = new int[] {0,2};
-		
-		int size = sizes.length;
-		ArrayList<String> chunkNames = new ArrayList<String>(dt.keySet());
-		int n = chunkNames.size();
-		int[][][] z = new int[T[1]][n][size];
-		int[][][] demand = new int[T[1]][n][size];
-		
-		System.out.println(chunkNames.get(0));
-		System.out.println(dt.get(0).get(chunkNames.get(0)).toString());
-		
-		z[0][0][3] = 40;
-		demand[0][0][3] = 60;
-		
-//		simulationMain(T, sizes, dt.get(0), z, demand);
-		
-        Random ran = new Random(1234);
+		solve2020(new int[]{0,52}, sizes, dt, parameters);
 
-		//Adding a bit of randomness to the demand
-		for (int i = 0; i < n; i ++) {
-			HashMap<String, Product> chunk = dt.get(chunkNames.get(i));
-			for (int s = 0; s < size; s++) {
-				Product prod = chunk.get(sizes[s]);
-				if (prod != null) {
-					demand[0][i][s] = (int) (prod.getSales(0) + Math.round( Math.sqrt(prod.getSales(0)) * ran.nextGaussian()));
-					if (demand[0][i][s] < 0 ) {
-						demand[0][i][s] = 0;
-					}
-					z[0][i][s] = prod.getSales(0);
-				}
-			}
-		}
-		simulationMain(T, sizes, dt, z, demand);
-		*/
+		
 		
 	}
 	
-	public static void solve2020(int[] T, String[] sizes, HashMap<String, HashMap<String, Product>> data) throws IloException
+	public static void solve2020(int[] T, String[] sizes, HashMap<String, HashMap<String, Product>> data,
+			HashMap<String, Object> parameters) throws IloException
 	{
 		// Create the model.
 		IloCplex cplex = new IloCplex ();
@@ -278,12 +233,13 @@ public class Simulation {
 						}
 					}
 				}
-				if (showWeeklyCapasity) {
+				if ((boolean) parameters.get("showWeeklyCapasity")) {
 				System.out.println("The capacity used in week " + t + "  is: "+ capasityUsed );
 				System.out.println("The percentage of capacity used in week " + t + "is: "+ capasityUsed / 2700  );
 				}
 				
-				if (showWeeklyServiceLevel) {
+				if ((boolean) parameters.get("showWeeklyServiceLevel")) {
+
 					System.out.println("The amount of goods sold in week " + t + "is: "+fulfilledDemandWeekly );
 					System.out.println("The amount of goods demanded in week " + t + " is: "+totDemandWeekly );
 					System.out.println("The servicelevel in week " + t + " is: "+ ((double) fulfilledDemandWeekly /totDemandWeekly) );
@@ -306,7 +262,7 @@ public class Simulation {
 			
 			/** Running the simulation using the ordering levels from the solution */
 			Random r = new Random(1234);
-			Simulation.getSimulationResults(T, sizes, data, zSolution, 100);
+			Simulation.getSimulationResults(T, sizes, data, zSolution, parameters);
 			
 		}
 		else
@@ -316,74 +272,48 @@ public class Simulation {
 	}
 	
 	public static void getSimulationResults(int[] T, String[] sizes, HashMap<String, HashMap<String, Product>> data,
-			int [][][] zSolution, int nbr) throws IloException {
+			int [][][] zSolution, HashMap<String, Object> parameters) throws IloException {
 		Random r = new Random(1234);
 		int sizeOfResultsSimulation = 4 + T[1] - T[0];
 		
 		ArrayList<ArrayList<Double>> results = new ArrayList<ArrayList<Double>>();
 		
-		for (int i = 0; i < nbr; i++) {
-			results.add(Simulation.simulationMain(T, sizes, data, zSolution, r));
+		for (int i = 0; i < (int) parameters.get("nbrSimulations"); i++) {
+			results.add(Simulation.simulationMain(T, sizes, data, zSolution, r, parameters));
 		
 		}
 		
 		//Print results
 		
-		/*
-		for (int j = 0; j < sizeOfResultsSimulation; j ++) {
-			switch (j) {
-			case 0:
-				System.out.println("This are the revenues");
-				break;
-			case 1:
-				System.out.println("This are the amount of products sold");
-				break;
-			case 2:
-				System.out.println("This are the amount of products demanded");
-				break;
-			case 3:
-				System.out.println("This are the service levels");
-				break;
-			default:
-				System.out.println("Not defined what this is.");
-				break;
-			}
-			
-			for (int i = 0; i < nbr; i++) {
-				System.out.println(results.get(i).get(j));
-			}
-			System.out.println();
-
-		}
-		*/
-		
-		for (int i = 0; i < nbr; i++) {
-
-			for (int j = 0; j < sizeOfResultsSimulation; j ++) {
-				if (j ==0) {
-					System.out.print(Math.round(results.get(i).get(j)));
-
-				}else{
-					System.out.print(results.get(i).get(j));
+		if ((boolean) parameters.get("printExcelFormatSimulationResults")) {
+			for (int i = 0; i < (int) parameters.get("nbrSimulations"); i++) {
+	
+				for (int j = 0; j < sizeOfResultsSimulation; j ++) {
+					if (j ==0) {
+						System.out.print(Math.round(results.get(i).get(j)));
+	
+					}else{
+						System.out.print(results.get(i).get(j));
+					}
+					if (j != sizeOfResultsSimulation - 1) {
+						System.out.print(" ");
+					}
 				}
-				if (j != sizeOfResultsSimulation - 1) {
-					System.out.print(" ");
-				}
+				System.out.println();
+	
 			}
-			System.out.println();
-
 		}
-		
 		//This only works for Floris at the moment
-		try {
-			Simulation.writeToExcel(results);
-			System.out.println("The results are written to an excel sheet");
-
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+		if ((boolean) parameters.get("exportSimulationResults")) {
+			try {
+				Simulation.writeToExcel(results, parameters);
+				System.out.println("The results are written to an excel sheet");
+	
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
-		
 
 	}
 	
@@ -399,7 +329,7 @@ public class Simulation {
 	 */
 	public static ArrayList<Double> simulationMain(int[] T, String[] sizes,
 			HashMap<String, HashMap<String, Product>> data,
-			int[][][] z, Random r) throws IloException {
+			int[][][] z, Random r, HashMap<String, Object> parameters) throws IloException {
 		
 		int size = sizes.length;
 		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
@@ -469,7 +399,13 @@ public class Simulation {
 					Product prod = chunk.get(sizes[s]);
 					if (prod != null) {
 						//Get the demand for this products
-						demand = prod.pullRandomSales(t, r);
+						if ((boolean) parameters.get("usePlusXInSales")) {
+							demand = prod.pullRandomSalesFloris(t, r);
+						}else if ((boolean) parameters.get("usePoisson") ) {
+							demand = prod.pullRandomSalesPoisson(t, r);
+						}else {
+							demand = prod.pullRandomSales(t, r);
+						}
 						
 						demandWeek += demand;
 						
@@ -521,20 +457,22 @@ public class Simulation {
 			}
 		}
 		
-		
-		//Print interesting information on the simulation
-		//Print interesting information on the simulation
-//		System.out.println("The amount of orders is: " + orders + " so ordering cost is: " + orders * 10 );	
-		System.out.println("The revenue for this period is: " + revenue);	
-//		System.out.println("The holding cost for this period is: " + holdingCost);	
-//		System.out.println("The profit for this period is: " + (revenue - holdingCost));
-//		System.out.println();
+		if ((boolean) parameters.get("printSimulationResults")) {
+			//Print interesting information on the simulation
+			//Print interesting information on the simulation
+//			System.out.println("The amount of orders is: " + orders + " so ordering cost is: " + orders * 10 );	
+			System.out.println("The revenue for this period is: " + revenue);	
+//			System.out.println("The holding cost for this period is: " + holdingCost);	
+//			System.out.println("The profit for this period is: " + (revenue - holdingCost));
+//			System.out.println();
 
-		System.out.println("There are " + totalOrdered + " products ordered and " + totalThrewAway+ " products thown away");	
-		System.out.println("The amount of products sold is: " + productsSold);	
-		System.out.println("The amount of products demanded is: " + totalDemand);	
-		System.out.println("The service level is: " + ((double)productsSold / totalDemand ));
-		System.out.println();
+			System.out.println("There are " + totalOrdered + " products ordered and " + totalThrewAway+ " products thown away");	
+			System.out.println("The amount of products sold is: " + productsSold);	
+			System.out.println("The amount of products demanded is: " + totalDemand);	
+			System.out.println("The service level is: " + ((double)productsSold / totalDemand ));
+			System.out.println();
+		}
+		
 
 		ArrayList<Double> results = new ArrayList<Double>();
 		results.add(revenue);
@@ -544,135 +482,6 @@ public class Simulation {
 		results.addAll(weeklyServiceLevel);
 		
 		return results;
-	}	
-	
-
-	public static void simulationMain1(int[] T, String[] sizes,
-			HashMap<String, HashMap<String, Product>> data,
-			int[][][] z, int[][][] demand) throws IloException {
-		
-		int size = sizes.length;
-		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
-		int n = chunkNames.size();
-		
-		int[][][] storage = new int[T[1]][n][size];
-		//for every week
-			//get ordering up to level off products
-			//Calculate demand for that week per product
-			//update some stats
-		
-		//Aggregate variables
-		int orders = 0; 
-		
-		int totalOrdered = 0;
-		int totalThrewAway = 0;
-		
-		double holdingCost = 0; //The total holding cost
-		double revenue = 0; //Revenue of the time period
-		double revenueTheoretical = 0; //The maximum revenue that could have been made
-		double relevanceSoldProducts = 0; // The total relevance score of all the products sold
-		double relevanceAllProducts = 0;	// the total relevance score of all products demanded.
-		int productsSold = 0; //The amount of products sold
-		int totalDemand = 0; // the total amount of products demanded.
-		
-		
-		for (int t = T[0]; t < T[1]; t++) {
-			
-			/** Ordering the new products */
-			
-			for (int i = 0; i < n; i ++) {
-				HashMap<String, Product> chunk = data.get(chunkNames.get(i));
-				boolean orderForChunk = false; //Flag to keep track if an order was placed for this chunk
-				for (int s = 0; s < size; s++) {
-					Product prod = chunk.get(sizes[s]);
-					
-					if (prod != null) {
-						if (storage[t][i][s] < z[t][i][s]) {
-							//We need to place an order
-							orderForChunk = true;
-//							System.out.println("we ordered "+ ( -storage[t][i][s] + z[t][i][s])+" at time  "+ t+" for chunk "+ chunkNames.get(i)+"of size "+ sizes[s]);		
-							totalOrdered += z[t][i][s] - storage[t][i][s];
-							storage[t][i][s]  = z[t][i][s];
-						}else if(storage[t][i][s] > z[t][i][s]) {
-//							System.out.println("we threw away  "+ ( storage[t][i][s] - z[t][i][s])+" at time  "+ t+" for chunk "+ chunkNames.get(i)+"of size "+ sizes[s]);		
-							totalThrewAway += storage[t][i][s] -z[t][i][s] ;
-							storage[t][i][s]  = z[t][i][s];
-						}
-					}
-				}
-				//Check if an order is placed if so add to the total amount of orders for ordering cost.
-				if (orderForChunk) {
-					orders ++;
-				}
-			}
-			
-			/** Selling products */
-			for (int i = 0; i < n; i ++) {
-				HashMap<String, Product> chunk = data.get(chunkNames.get(i));
-				for (int s = 0; s < size; s++) {
-					Product prod = chunk.get(sizes[s]);
-					if (prod != null) {
-						if (demand[t][i][s] <= storage[t][i][s]) {
-							//Update revenue
-							revenue += prod.getAveragePrice(t) * demand[t][i][s];
-							revenueTheoretical += prod.getAveragePrice(t) * demand[t][i][s];
-							//Update relevance score
-							relevanceSoldProducts += prod.getRelevanceScore() * demand[t][i][s];
-							relevanceAllProducts += prod.getRelevanceScore() * demand[t][i][s];
-							// update amount of products
-							productsSold += demand[t][i][s];
-							totalDemand += demand[t][i][s];
-							
-							//Update the amount in storage
-							storage[t][i][s] -= demand[t][i][s];
-						}else {
-							//Update revenue
-							revenue += prod.getAveragePrice(t) * storage[t][i][s];
-							revenueTheoretical += prod.getAveragePrice(t) * demand[t][i][s];
-							//Update relevance score
-							relevanceSoldProducts += prod.getRelevanceScore() * storage[t][i][s];
-							relevanceAllProducts += prod.getRelevanceScore() * demand[t][i][s];
-							// update amount of products
-							productsSold += storage[t][i][s];
-							totalDemand += demand[t][i][s];
-							
-							//Update the amount in storage
-							storage[t][i][s] = 0;
-						}
-					}
-				}
-			}
-			
-			
-			/** Moving on to the next week*/ 
-			for (int i = 0; i < n; i ++) {
-				HashMap<String, Product> chunk = data.get(chunkNames.get(i));
-				for (int s = 0; s < size; s++) {
-					Product prod = chunk.get(sizes[s]);
-					if (prod != null && t != T[1] - 1 ) {
-						storage[t + 1][i][s] = storage[t][i][s]; //Set remaining products as starting inventory of next week
-						holdingCost += storage[t][i][s] * prod.getUnitStorageCost()  * 7; //Add holding cost for the goods that are held for more then a week
-					}
-				}
-			}
-		}
-		
-		
-		//Print interesting information on the simulation
-//		System.out.println("The amount of orders is: " + orders + " so ordering cost is: " + orders * 10 );	
-		System.out.println("The revenue for this period is: " + revenue);	
-//		System.out.println("The holding cost for this period is: " + holdingCost);	
-//		System.out.println("The profit for this period is: " + (revenue - holdingCost));
-//		System.out.println();
-
-		System.out.println("There are " + totalOrdered + " products ordered and " + totalThrewAway+ " products thown away");	
-		System.out.println("The amount of products sold is: " + productsSold);	
-		System.out.println("The amount of products demanded is: " + totalDemand);	
-		System.out.println("The service level is: " + ((double)productsSold / totalDemand ));
-		System.out.println();
-
-
-		System.out.println("This is the end of the simulation main method");	
 	}	
 	
 
@@ -709,13 +518,13 @@ public class Simulation {
 		return null;
 	}
 
-	public static void writeToExcel(ArrayList<ArrayList<Double>> results) throws IOException {
+	public static void writeToExcel(ArrayList<ArrayList<Double>> results, HashMap<String, Object> parameters) throws IOException {
 		// workbook object
         XSSFWorkbook workbook = new XSSFWorkbook();
   
         // spreadsheet object
         XSSFSheet spreadsheet
-            = workbook.createSheet("Results Simulation version 1.1");
+            = workbook.createSheet("Results Simulation");
   
         // creating a row object
         XSSFRow row;
@@ -738,7 +547,7 @@ public class Simulation {
         // .xlsx is the format for Excel Sheets...
         // writing the workbook into the file...
         FileOutputStream out = new FileOutputStream(
-        		new File("/Users/floris/Documents/Studie/Year_3_Block_4/Seminar/Results.xlsx"));
+        		new File("/Users/floris/Documents/Studie/Year_3_Block_4/Seminar/"+ (String) parameters.get("fileName")+".xlsx"));
 
         workbook.write(out);
         out.close();
