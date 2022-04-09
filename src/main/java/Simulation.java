@@ -44,8 +44,13 @@ public class Simulation {
 		//Printing options 
 		parameters.put("printExcelFormatSimulationResults", false);
 		parameters.put("printSimulationResults", true);
+		
 		parameters.put("showWeeklyCapasity", true);
 		parameters.put("showWeeklyServiceLevel", true);
+		parameters.put("printEveryOrder", false);
+		parameters.put("printEveryVariable", false);
+		parameters.put("printEveryVariableIfLost", true);
+		
 		
 		//Export to excel options 
 		parameters.put("exportSimulationResults", false);
@@ -55,17 +60,33 @@ public class Simulation {
 		parameters.put("nbrSimulations" , 1);
 		
 		//model options
-		parameters.put("addOrderingConstraint", false);
-		parameters.put("addOrderingVariable", true);
+		parameters.put("addOrderingConstraint", false); //Does not work leave false
+		parameters.put("addOrderingVariable", true); //Adds the two weeks ordering constraint weeks 44 -52
 
-
-		
 		
 
 		
+		ArrayList<String> chunkNames = new ArrayList<String>(dt.keySet());
+		int n = chunkNames.size();
 		
-		solve2020(new int[]{0,52}, sizes, dt, parameters);
-
+		HashMap<String, HashMap<String, Product>> smallData = new HashMap<String, HashMap<String, Product>> ();
+		smallData.put(chunkNames.get(0), dt.get(chunkNames.get(3)));
+		
+		for (int j = 0; j < 10; j ++) {
+			System.out.println();
+			System.out.println("This is "+ j);
+			HashMap<String, Product> chunk = dt.get(chunkNames.get(j));
+			
+			for (int i = 0; i < sizes.length; i ++) {
+				Product prod = chunk.get(sizes[i]);
+				if (prod != null) {
+					System.out.println("sales of size " + sizes[i]+ " is " + prod.getPredictedDemand(0));
+				}
+			}
+		}
+//		solve2020(new int[]{0,52}, sizes, dt, parameters);
+//		Simulation.solve2020WithTransfer(new int[]{0,52}, sizes, dt, parameters);
+		Simulation.solve2020WithTransfer(new int[]{44, 52}, sizes, dt, parameters);
 		
 		
 	}
@@ -581,4 +602,278 @@ public class Simulation {
     
 	}
 	
+	public static void solve2020WithTransfer(int[] T, String[] sizes, HashMap<String, HashMap<String, Product>> data,
+			HashMap<String, Object> parameters) throws IloException
+	{
+		// Create the model.
+		IloCplex cplex = new IloCplex ();
+//		cplex.setParam(IloCplex.Param.MIP.Tolerances.MIPGap, 0.00001);
+
+		int maxDemandProduct = 60012;
+
+		//double cap0 = 3000*15/100;
+		//double cap1 = 15000*15/100;
+		
+		int size = sizes.length;
+		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
+		int n = chunkNames.size();
+		
+		// Create the variables and their domain restrictions.
+		IloNumVar [][][][] x = new IloNumVar[T[1]][n][size][2];
+		IloNumVar [][][][] z = new IloNumVar[T[1]][n][size][2];
+		IloNumVar [][][][] u = new IloNumVar[T[1]][n][size][2];
+		IloNumVar [] y = new IloNumVar[n];
+		
+		IloNumVar [][] order = new IloNumVar[T[1]][n];
+		
+
+		
+		for (int i = 0; i < n; i ++) {
+			y[i] = cplex.boolVar("y(" + chunkNames.get(i) + ")");
+			for (int t = T[0]; t < T[1]; t++) {
+				if ((boolean) parameters.get("addOrderingVariable")) { 
+					order[t][i] = cplex.boolVar("order(" + chunkNames.get(i) + ")");
+				
+				}
+				for (int s = 0; s < size; s++) {
+					HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+					Product prod = chunk.get(sizes[s]);
+					if (prod != null) {
+						for (int j = 0; j < 2; j++) {
+							x[t][i][s][j] = cplex.intVar(0, Integer.MAX_VALUE, "x(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + "," + j + ")");
+							z[t][i][s][j] = cplex.intVar(0, Math.max(prod.getPredictedDemand(t), 0), "z(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + "," + j+ ")");
+							u[t][i][s][j] = cplex.intVar(0, Integer.MAX_VALUE, "u(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + "," + j+ ")");
+
+						}
+					}
+				}
+			}
+		}
+		
+		// Create the objective.
+		IloNumExpr objExpr = cplex.constant(0);
+		
+		for (int i = 0; i < n; i ++) {
+			HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+			for (int s = 0; s < size; s++) {
+				Product prod = chunk.get(sizes[s]);
+				if (prod != null) {
+					cplex.addEq(u[T[0]][i][s][0], 0, "Initial storage level 0");
+					cplex.addEq(u[T[0]][i][s][1], 0, "Initial storage level 1");
+					for (int t = T[0]; t < T[1]; t++) {
+						objExpr = cplex.sum(objExpr, cplex.prod(prod.getAverageAveragePrice(), cplex.sum( z[t][i][s][0], z[t][i][s][1])));
+						// Use one of the two
+						if (t + 1 != T[1]) {
+							for (int j = 0; j < 2; j++) {
+								IloNumExpr temp = cplex.constant(0);
+								temp = cplex.sum(x[t][i][s][j], cplex.diff(u[t][i][s][j], z[t][i][s][j]));
+								cplex.addLe(u[t+1][i][s][j],temp, "Constraints on goods in warehouse " + j);
+
+							}
+
+						}else {
+							for (int j = 0; j < 2; j++) {
+								cplex.addLe(z[t][i][s][j],cplex.sum(x[t][i][s][j],u[t][i][s][j]), "Constraints on goods in warehouse " + j+"Final week");
+
+							}						}
+//						cplex.addGe(cplex.sum(x[t][i][s][0], x[t][i][s][1]), cplex.sum(u[t][i][s], z[t][i][s]), "Constraints on goods in warehouse");
+//						cplex.addEq(cplex.sum(x[t][i][s][0], x[t][i][s][1]), z[t][i][s], "Constraints on goods in warehouse");
+						
+						
+						if ((boolean) parameters.get("addOrderingVariable")) { 
+							cplex.addLe(x[t][i][s][0], cplex.prod(maxDemandProduct, order[t][i]), "Constraints on ordering in allowed weeks");
+							cplex.addLe(x[t][i][s][1], cplex.prod(maxDemandProduct, order[t][i]), "Constraints on ordering in allowed weeks");
+//													
+						}
+						cplex.addLe(cplex.sum(x[t][i][s][0], cplex.sum(u[t][i][s][0], z[t][i][s][0])), cplex.prod(3 * maxDemandProduct, cplex.sum(1, cplex.negative(y[i]))), "Constraints on warehouse goods allocation");
+						cplex.addLe(cplex.sum(x[t][i][s][1], cplex.sum(u[t][i][s][1], z[t][i][s][1])), cplex.prod(3 * maxDemandProduct, y[i]), "Constraints on warehouse goods allocation");
+//						if (t + 1 != T) {
+//							cplex.addEq(cplex.sum(u[t + 1][i][s], z[t][i][s]), cplex.sum(x[t][i][s][0], x[t][i][s][1]), "Inventory at the beginning of the period");
+//						}
+					}
+				}
+			}
+		}
+		cplex.addMaximize(objExpr);
+		
+		
+		
+		//Add capacity constraint for small and big warehouse
+		for (int t = T[0]; t < T[1]; t++) {
+			IloNumExpr capacity0 = cplex.constant(0);
+			IloNumExpr capacity1 = cplex.constant(0);
+			for (int i = 0; i < n; i ++) {
+				HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+				for (int s = 0; s < size; s++) {
+					Product prod = chunk.get(sizes[s]);
+					if (prod != null) {
+						capacity0 = cplex.sum(capacity0, cplex.prod(prod.getAverageAverageM3(), cplex.sum(x[t][i][s][0],u[t][i][s][0]) ));
+						capacity1 = cplex.sum(capacity1, cplex.prod(prod.getAverageAverageM3(), cplex.sum(x[t][i][s][1],u[t][i][s][1]) ));
+					}
+				}
+			}
+			cplex.addLe(capacity0, 3000 * 0.15, "Capacity constraint for small warehouse");
+			cplex.addLe(capacity1, 15000 * 0.15, "Capacity constraint for big warehouse");
+		}
+		
+		
+		if ((boolean) parameters.get("addOrderingVariable")) {
+			cplex = Solver.addOrderingConstraint2020(T, sizes, cplex, order, data);
+		}
+
+		
+		
+		/** This is the end of the model building part**/ 
+		
+		// Export model
+		cplex.exportModel("Model.lp");
+		
+		// Solve the model.
+		cplex.solve();
+
+		// Query the solution.
+		if (cplex.getStatus() == IloCplex.Status.Optimal)
+		{
+			//Below are some different options to analyze the solution
+			
+			System.out.println("Found optimal solution!");
+			System.out.println("Objective = " + cplex.getObjValue());
+			System.out.println(Math.round(cplex.getObjValue()));
+			
+			
+			// Copy the solution into a different array
+			int [][][] zSolution = new int[T[1]][n][size];
+			int [][][][] xSolution = new int[T[1]][n][size][2];
+			int [] ySolution = new int[n];
+			
+			for (int i = 0; i < n; i ++) {
+				ySolution[i] = (int) cplex.getValue(y[i]);
+				for (int t = T[0]; t < T[1]; t++) {
+					for (int s = 0; s < size; s++) {
+						HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+						Product prod = chunk.get(sizes[s]);
+						if (prod != null) {
+							zSolution[t][i][s] =  (int) Math.round( cplex.getValue(z[t][i][s][0]) + cplex.getValue(z[t][i][s][1]));
+							xSolution[t][i][s][0] = (int) Math.round(cplex.getValue(x[t][i][s][0]));
+							xSolution[t][i][s][1] = (int) Math.round(cplex.getValue(x[t][i][s][1]));
+							
+							if ((boolean) parameters.get("printEveryVariable")) {
+	
+								System.out.println("this is for week "+ t);
+								System.out.println("x 0 is" + cplex.getValue(x[t][i][s][0]));
+								System.out.println("x 1 is" + cplex.getValue(x[t][i][s][1]));
+								System.out.println("z 0 is" + cplex.getValue(z[t][i][s][0]));
+								System.out.println("z 1 is" + cplex.getValue(z[t][i][s][1]));
+								System.out.println("u 0 is" + cplex.getValue(u[t][i][s][0]));
+								System.out.println("u 1 is" + cplex.getValue(u[t][i][s][1]));
+							}
+							
+							if ((boolean) parameters.get("printEveryVariableIfLost") && (int) Math.round( cplex.getValue(z[t][i][s][0]) + cplex.getValue(z[t][i][s][1])) < prod.getPredictedDemand(t) ) {
+								
+								System.out.println("this is for week "+ t);
+								System.out.println("x 0 is" + cplex.getValue(x[t][i][s][0]));
+								System.out.println("x 1 is" + cplex.getValue(x[t][i][s][1]));
+								System.out.println("z 0 is" + cplex.getValue(z[t][i][s][0]));
+								System.out.println("z 1 is" + cplex.getValue(z[t][i][s][1]));
+								System.out.println("u 0 is" + cplex.getValue(u[t][i][s][0]));
+								System.out.println("u 1 is" + cplex.getValue(u[t][i][s][1]));
+								System.out.println("order is" + cplex.getValue(order[t][i]));
+								System.out.println("y is" + cplex.getValue(y[i]));
+							}
+							
+							if ((boolean) parameters.get("printEveryOrder")) {
+								if (cplex.getValue(x[t][i][s][0])> 0 ) {
+									System.out.println("Chunk " + chunkNames.get(i)+ " of size " + sizes[s] +" was ordered " + cplex.getValue(x[t][i][s][0])+ " times at time " + t + "in warehouse 0");
+								}
+								if (cplex.getValue(x[t][i][s][1])> 0 ) {
+									System.out.println("Chunk " + chunkNames.get(i)+ " of size " + sizes[s] +" was ordered " + cplex.getValue(x[t][i][s][1])+ " times at time " + t+ "in warehouse 1");
+								}
+								
+							}
+						}
+					}
+				}
+			}
+			
+			
+			/** Set output parameters here */
+			boolean showWeeklyCapasity = false;
+			boolean showWeeklyServiceLevel = false;
+			
+			
+			//Calculate service level
+			int totDemand = 0;
+			int fulfilledDemand = 0;
+			
+			double totCapasityUsed = 0;
+			
+			
+			for (int t = T[0]; t < T[1]; t++) {
+				double capasityUsed = 0;
+				int totDemandWeekly = 0;
+				int fulfilledDemandWeekly = 0;
+				
+				for (int i = 0; i < n; i ++) {
+					for (int s = 0; s < size; s++) {
+						HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+						Product prod = chunk.get(sizes[s]);
+						if (prod != null) {
+							totDemand += prod.getPredictedDemand(t);
+							fulfilledDemand += zSolution[t][i][s];
+							
+							totDemandWeekly += prod.getPredictedDemand(t);
+							fulfilledDemandWeekly += zSolution[t][i][s];
+							
+							
+							if (prod.getPredictedDemand(t) < zSolution[t][i][s]) {
+								System.out.println("Demand small then amount sold for " + chunkNames.get(i) + sizes[s]+ " in week " + t);
+								System.out.println("Demand is  " + prod.getPredictedDemand(t) + " and sales is  " + zSolution[t][i][s] );
+							}
+							
+							totCapasityUsed += zSolution[t][i][s] * prod.getAverageAverageM3();
+							capasityUsed += zSolution[t][i][s] * prod.getAverageAverageM3();
+						}
+					}
+				}
+				if ((boolean) parameters.get("showWeeklyCapasity")) {
+					System.out.println("The capacity used in week " + t + "  is: "+ capasityUsed );
+					System.out.println("The percentage of capacity used in week " + t + "is: "+ capasityUsed / 2700  );
+					System.out.println();
+				}
+				
+				if ((boolean) parameters.get("showWeeklyServiceLevel")) {
+
+					System.out.println("The amount of goods sold in week " + t + "is: "+fulfilledDemandWeekly );
+					System.out.println("The amount of goods demanded in week " + t + " is: "+totDemandWeekly );
+					System.out.println("The servicelevel in week " + t + " is: "+ ((double) fulfilledDemandWeekly /totDemandWeekly) );
+					System.out.println();
+
+				}
+				
+				if (showWeeklyCapasity || showWeeklyServiceLevel) {
+					System.out.println();
+				}
+			}
+			
+			System.out.println("The amount of goods sold is: "+fulfilledDemand );
+			System.out.println("The amount of goods demanded is: "+totDemand );
+			System.out.println("The servicelevel over the whole period is: "+ ((double) fulfilledDemand /totDemand) );
+			
+			
+			System.out.println("The capacity used is: "+totCapasityUsed );
+			System.out.println("The percentage of capacity used is: "+ totCapasityUsed / (2700 * T[1]) );
+
+			
+			
+			/** Running the simulation using the ordering levels from the solution */
+			Random r = new Random(1234);
+			Simulation.getSimulationResults(T, sizes, data, zSolution, parameters);
+			
+		}
+		else
+		{
+			System.out.println("No optimal solution found");
+		}
+	}
+
 }
