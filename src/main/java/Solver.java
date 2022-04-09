@@ -158,7 +158,7 @@ public class Solver {
 		}
 		
 		//Add the service level constraints
-		cplex = Solver.serviceLevelConstraintPerCategorie(T, sizes, cplex, z, data);
+		cplex = serviceLevelConstraintPerCategorie(T, sizes, cplex, z, data);
 		
 		
 		// The last three parameters are nbr of steps, size of the steps, and value of first step. 
@@ -184,7 +184,7 @@ public class Solver {
 			System.out.println("Objective = " + cplex.getObjValue());
 			
 			//	View the capacity per week
-			capacityCheck(T, sizes, cplex, x, data);
+			ArrayList<ArrayList<Double>> leftoverCapacity = capacityCheck(T, sizes, cplex, x, data);
 			
 			// View the service level per category over the full years
 			serviceLevel(T, sizes, cplex, z, data);
@@ -198,15 +198,146 @@ public class Solver {
 			//ArrayList<HashMap<String, HashMap<String, Product>>> dt2019 = readData(new ArrayList<Integer>(Arrays.asList(2019)));
 			//projectedOn2019(T, sizes, cplex, z, data, dt2019.get(0));
 			
+			int[] yResult = new int[n];
+			for (int i = 0; i < n; i ++) {
+				yResult[i] = (int) cplex.getValue(y[i]);
+			}
 			
 			//	Write the excel file to a excel file
-			writeSolutionToDucument(cplex, z, y, data);
+			writeSolutionToDucument(cplex, z, y, data, "Solution_Baseline_2020");
+			
+//			ArrayList<ArrayList<Double>> leftoverCapacity = leftoverCapacity(T, sizes, cplex, y, x, data);
+			
+			heuristic(T, sizes, yResult, leftoverCapacity.get(0), leftoverCapacity.get(0), data);
+		}
+		else
+		{
+			System.out.println("No optimal solution found");
+		}
+		cplex.close();
+	}
+	
+	public static void heuristic(int T, String[] sizes, int[] y, ArrayList<Double> capacity0, ArrayList<Double> capacity1, HashMap<String, HashMap<String, Product>> data) throws IloException {
+		IloCplex cplex = new IloCplex ();
+
+		double criticalValue95 = 1.96;
+		double criticalValue98 = 2.3263;
+		
+		int size = sizes.length;
+		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
+		int n = chunkNames.size();
+		
+		// Create the variables and their domain restrictions.
+		IloNumVar [][][] r = new IloNumVar[T][n][size];
+		IloNumVar [] y_var = new IloNumVar[n];
+		
+		for (int i = 0; i < n; i ++) {
+			y_var[i] = cplex.boolVar("y(" + chunkNames.get(i) + ")");
+			for (int t = 0; t < T; t++) {
+				for (int s = 0; s < size; s++) {
+					HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+					Product prod = chunk.get(sizes[s]);
+					if (prod != null) {
+						r[t][i][s]= cplex.intVar(0, Integer.MAX_VALUE, "r(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + ")");
+//						r[t][i][s][1] = cplex.intVar(0, Integer.MAX_VALUE, "r(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + "," + 1 + ")");
+					}
+				}
+			}
+		}
+		
+		// Create the objective.
+		IloNumExpr objExpr = cplex.constant(0);
+		
+		for (int i = 0; i < n; i ++) {
+			HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+			for (int s = 0; s < size; s++) {
+				Product prod = chunk.get(sizes[s]);
+				if (prod != null) {
+					for (int t = 0; t < T; t++) {
+						objExpr = cplex.sum(objExpr, cplex.prod(prod.getRelevanceScore(), r[t][i][s]));
+						double criticalValue = prod.getProductGroup().equals("General Toys") ? criticalValue98 : criticalValue95;
+						cplex.addLe(r[t][i][s], prod.getSalesVarianceOfWeek(t)*criticalValue);
+					}
+				}
+			}
+		}
+		cplex.addMaximize(objExpr);
+		
+		for (int t = 0; t < T; t++) {
+			IloNumExpr cap0 = cplex.constant(0);
+			IloNumExpr cap1 = cplex.constant(0);
+			for (int i = 0; i < n; i ++) {
+				HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+				for (int s = 0; s < size; s++) {
+					Product prod = chunk.get(sizes[s]);
+					if (prod != null) {
+//						int warehouse0 = (int) (1 - cplexOld.getValue(y[i]));
+//						int warehouse1 = (int) (cplexOld.getValue(y[i]));
+						cap0 = cplex.sum(cap0, cplex.prod(prod.getAverageM3(t), cplex.prod(1 - y[i], r[t][i][s])));
+						cap1 = cplex.sum(cap1, cplex.prod(prod.getAverageM3(t), cplex.prod(y[i], r[t][i][s])));
+					}
+				}
+			}
+			cplex.addLe(cap0, capacity0.get(t), "Constraints on warehouse goods allocation");
+			cplex.addLe(cap1, capacity1.get(t), "Constraints on warehouse goods allocation");
+		}
+		
+		// Solve the model.
+		cplex.solve();
+		
+		if (cplex.getStatus() == IloCplex.Status.Optimal)
+		{
+			//Below are some different options to analyze the solution
+			
+			System.out.println("Found optimal solution!");
+			System.out.println("Objective = " + cplex.getObjValue());
+			
+			//	Write the excel file to a excel file
+			writeSolutionToDucumentHeuristics(cplex, r, y_var, data, "Solution_Heuristics_2020");
+			
+			cplex.close();
 			
 		}
 		else
 		{
 			System.out.println("No optimal solution found");
 		}
+		
+		cplex.close();
+	}
+	
+	public static ArrayList<ArrayList<Double>> leftoverCapacity(int T, String[] sizes, IloCplex cplex, IloNumVar[] y, IloNumVar[][][][] x, HashMap<String, HashMap<String, Product>> data) throws IloException {
+		ArrayList<Double> capacity0 = new ArrayList<Double>();
+		ArrayList<Double> capacity1 = new ArrayList<Double>();
+		
+		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
+		int n = chunkNames.size();
+		int size = sizes.length;
+		
+		double maxcap0 = 3000*15/100;
+		double maxcap1 = 15000*15/100;
+		
+		for (int t = 0; t < T; t++)	{
+			IloNumExpr cap0 = cplex.constant(0);
+			IloNumExpr cap1 = cplex.constant(0);
+			for (int i = 0; i < n; i ++) {
+				HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+				for (int s = 0; s < size; s++) {
+					Product prod = chunk.get(sizes[s]);
+					if (prod != null) {
+						cap0 = cplex.sum(cap0, cplex.prod(prod.getAverageM3(t), x[t][i][s][0]));
+						cap1 = cplex.sum(cap1, cplex.prod(prod.getAverageM3(t), x[t][i][s][1]));
+					}
+				}
+			}
+			capacity0.add(maxcap0 - cplex.getValue(cap0));
+			capacity0.add(maxcap1 - cplex.getValue(cap1));
+		}
+		
+		ArrayList<ArrayList<Double>> result = new ArrayList<ArrayList<Double>>();
+		result.add(capacity0);
+		result.add(capacity1);
+		return result;
 	}
 	
 	public static void solveForSubperiod(int[] T, String[] sizes, HashMap<String, HashMap<String, Product>> data) throws IloException
@@ -363,7 +494,7 @@ public class Solver {
 	 * @param y
 	 * @param data
 	 */
-	public static void writeSolutionToDucument(IloCplex cplex, IloNumVar[][][] z, IloNumVar[] y, HashMap<String, HashMap<String, Product>> data) {
+	public static void writeSolutionToDucument(IloCplex cplex, IloNumVar[][][] z, IloNumVar[] y, HashMap<String, HashMap<String, Product>> data, String filename) {
 		// This should write the data to an Excel file
 		//File file = new File("C:\\Users\\gijsm\\Documents\\DOCUMENTEN\\School\\SeminarCaseStudy\\SolutionFiles\\");
 		
@@ -377,7 +508,7 @@ public class Solver {
 		
 		CustomDataWriter cdw = new CustomDataWriter(file);
 		try {
-			cdw.writeSolutionToExcelFile(cplex, y, z, data, "Solution_Forecast_2020");
+			cdw.writeSolutionToExcelFile(cplex, y, z, data, filename);
 		} catch (UnknownObjectException e) {
 			e.printStackTrace();
 		} catch (IloException e) {
@@ -386,6 +517,51 @@ public class Solver {
 			e.printStackTrace();
 		}
 	}
+	
+	public static void writeSolutionToDucumentHeuristics(IloCplex cplex, IloNumVar[][][] z, IloNumVar[] y, HashMap<String, HashMap<String, Product>> data, String filename) {
+		File file;
+		String os = System.getProperty("os.name").toLowerCase();
+		if (os.indexOf("win") >= 0) {
+			file = new File(".\\dataFiles\\");
+		}else {
+			file = new File("./dataFiles/");
+		}
+		
+		CustomDataWriter cdw = new CustomDataWriter(file);
+		try {
+			cdw.writeHeuristicsSolutionToExcelFile(cplex, y, z, data, filename);
+		} catch (UnknownObjectException e) {
+			e.printStackTrace();
+		} catch (IloException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+//	public static void writeSolutionToDucument(IloCplex cplex, IloNumVar[][][] z, HashMap<String, HashMap<String, Product>> data, String filename) {
+//		// This should write the data to an Excel file
+//		//File file = new File("C:\\Users\\gijsm\\Documents\\DOCUMENTEN\\School\\SeminarCaseStudy\\SolutionFiles\\");
+//		
+//		File file;
+//		String os = System.getProperty("os.name").toLowerCase();
+//		if (os.indexOf("win") >= 0) {
+//			file = new File(".\\dataFiles\\");
+//		}else {
+//			file = new File("./dataFiles/");
+//		}
+//		
+//		CustomDataWriter cdw = new CustomDataWriter(file);
+//		try {
+//			cdw.writeSolutionToExcelFile(cplex, z, data, filename);
+//		} catch (UnknownObjectException e) {
+//			e.printStackTrace();
+//		} catch (IloException e) {
+//			e.printStackTrace();
+//		} catch (IOException e) {
+//			e.printStackTrace();
+//		}
+//	}
 	
 	/**
 	 * This method solves the problem with adding a stricter overall service level each time.
@@ -524,7 +700,13 @@ public class Solver {
 	 * @param data The data on the products
 	 * @throws IloException 
 	 */
-	public static void capacityCheck(int T,String[] sizes, IloCplex cplex, IloNumVar[][][][] x, HashMap<String, HashMap<String, Product>> data ) throws IloException {
+	public static ArrayList<ArrayList<Double>> capacityCheck(int T, String[] sizes, IloCplex cplex, IloNumVar[][][][] x, HashMap<String, HashMap<String, Product>> data ) throws IloException {
+		ArrayList<Double> leftovercapacity0 = new ArrayList<Double>();
+		ArrayList<Double> leftovercapacity1 = new ArrayList<Double>();
+		
+		double maxcap0 = 3000*15/100;
+		double maxcap1 = 15000*15/100;
+		
 		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
 		int n = chunkNames.size();
 		int size = sizes.length;
@@ -543,9 +725,16 @@ public class Solver {
 				}
 			}
 			
-			System.out.println((cplex.getValue(capacity0) < 450) + " Capasity at time " + t+ " for the small warehouse is :" + cplex.getValue(capacity0));
-			System.out.println((cplex.getValue(capacity1) < 2250)+" Capasity at time " + t+ " for the big warehouse is :"+ cplex.getValue(capacity1));
+			System.out.println((cplex.getValue(capacity0) < maxcap0) + " Capasity at time " + t+ " for the small warehouse is :" + cplex.getValue(capacity0));
+			System.out.println((cplex.getValue(capacity1) < maxcap1)+" Capasity at time " + t+ " for the big warehouse is :"+ cplex.getValue(capacity1));
+			leftovercapacity0.add(maxcap0 - cplex.getValue(capacity0));
+			leftovercapacity1.add(maxcap1 - cplex.getValue(capacity1));
 		}
+		
+		ArrayList<ArrayList<Double>> result = new ArrayList<ArrayList<Double>>();
+		result.add(leftovercapacity0);
+		result.add(leftovercapacity1);
+		return result;
 	}
 	
 	/**
