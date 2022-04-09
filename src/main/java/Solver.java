@@ -258,9 +258,10 @@ public class Solver {
 				Product prod = chunk.get(sizes[s]);
 				if (prod != null) {
 					for (int t = 0; t < T; t++) {
-						System.out.println(prod.getRelevanceScore());
+//						System.out.println(prod.getRelevanceScore());
 						objExpr = cplex.sum(objExpr, cplex.prod(prod.getRelevanceScore(), r[t][i][s]));
 						double criticalValue = prod.getProductGroup().equals("General Toys") ? criticalValue98 : criticalValue95;
+						System.out.println(prod.getSalesVarianceOfWeek(t)*criticalValue);
 						cplex.addLe(r[t][i][s], prod.getSalesVarianceOfWeek(t)*criticalValue);
 					}
 				}
@@ -276,10 +277,8 @@ public class Solver {
 				for (int s = 0; s < size; s++) {
 					Product prod = chunk.get(sizes[s]);
 					if (prod != null) {
-//						int warehouse0 = (int) (1 - cplexOld.getValue(y[i]));
-//						int warehouse1 = (int) (cplexOld.getValue(y[i]));
-						cap0 = cplex.sum(cap0, cplex.prod(prod.getAverageM3(t), cplex.prod(1 - y[i], r[t][i][s])));
-						cap1 = cplex.sum(cap1, cplex.prod(prod.getAverageM3(t), cplex.prod(y[i], r[t][i][s])));
+						if (y[i] == 0) cap0 = cplex.sum(cap0, cplex.prod(prod.getAverageM3(t), r[t][i][s]));
+						else cap1 = cplex.sum(cap1, cplex.prod(prod.getAverageM3(t), r[t][i][s]));
 					}
 				}
 			}
