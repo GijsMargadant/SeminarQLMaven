@@ -37,77 +37,8 @@ public class Simulation {
 		
 		System.out.println("De data is geladen");
 		
-		
-		/*
-		int size = sizes.length;
-		ArrayList<String> chunkNames = new ArrayList<String>(dt.keySet());
-		int n = chunkNames.size();
-		
-		for (int i = 0; i < n; i ++) {
-			for (int t = 0; t < 1; t++) {
-				for (int s = 0; s < size; s++) {
-					HashMap<String, Product> chunk = dt.get(chunkNames.get(i));
-					Product prod = chunk.get(sizes[s]);
-					if (prod != null) {
-						if (prod.getAverageAverageM3() == 1) {
-							System.out.println(prod.getAverageAverageM3());
-							for (int j =0; j < 104; j ++) {
-								System.out.print(prod.getAverageM3(j));
-								
-							}
-							System.out.println();
+		solve2020(new int[]{0,1}, sizes, dt);
 
-						}
-						
-						if (Double.isNaN(prod.getAverageAverageM3())) {
-							System.out.println(prod.getAverageAverageM3());
-							System.out.println(prod.getAverageM3(t));
-						}
-					}
-				}
-			}
-		}
-		*/
-		
-		solve2020(new int[]{0,52}, sizes, dt);
-
-		
-		
-		/*
-		int[] T = new int[] {0,2};
-		
-		int size = sizes.length;
-		ArrayList<String> chunkNames = new ArrayList<String>(dt.keySet());
-		int n = chunkNames.size();
-		int[][][] z = new int[T[1]][n][size];
-		int[][][] demand = new int[T[1]][n][size];
-		
-		System.out.println(chunkNames.get(0));
-		System.out.println(dt.get(0).get(chunkNames.get(0)).toString());
-		
-		z[0][0][3] = 40;
-		demand[0][0][3] = 60;
-		
-//		simulationMain(T, sizes, dt.get(0), z, demand);
-		
-        Random ran = new Random(1234);
-
-		//Adding a bit of randomness to the demand
-		for (int i = 0; i < n; i ++) {
-			HashMap<String, Product> chunk = dt.get(chunkNames.get(i));
-			for (int s = 0; s < size; s++) {
-				Product prod = chunk.get(sizes[s]);
-				if (prod != null) {
-					demand[0][i][s] = (int) (prod.getSales(0) + Math.round( Math.sqrt(prod.getSales(0)) * ran.nextGaussian()));
-					if (demand[0][i][s] < 0 ) {
-						demand[0][i][s] = 0;
-					}
-					z[0][i][s] = prod.getSales(0);
-				}
-			}
-		}
-		simulationMain(T, sizes, dt, z, demand);
-		*/
 		
 	}
 	
@@ -306,7 +237,7 @@ public class Simulation {
 			
 			/** Running the simulation using the ordering levels from the solution */
 			Random r = new Random(1234);
-			Simulation.getSimulationResults(T, sizes, data, zSolution, 100);
+			Simulation.getSimulationResults(T, sizes, data, zSolution, 1);
 			
 		}
 		else
@@ -471,6 +402,9 @@ public class Simulation {
 						//Get the demand for this products
 						demand = prod.pullRandomSales(t, r);
 						
+						if (z[t][i][s] > 0 ) {
+							System.out.println("Demand is " + demand + " storage is " + z[t][i][s]);
+						}
 						demandWeek += demand;
 						
 						if (demand <= storage[t][i][s]) {

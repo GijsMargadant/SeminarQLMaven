@@ -264,7 +264,9 @@ public class Product {
 		if(x < 0) {
 			x = 0;
 		}
-		
+		System.out.println("cleanedStdev is " + cleanedStdev + "cleanedMean is " + cleanedMean);
+
+		System.out.println(" levelAndTrend is " + levelAndTrend + " seasonalIndices[season] is " + seasonalIndices[season] + " x is " + x );
 		int sales = (int) Math.round(levelAndTrend * seasonalIndices[season] * x);
 		
 		return sales;
