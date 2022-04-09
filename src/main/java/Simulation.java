@@ -43,17 +43,22 @@ public class Simulation {
 		
 		//Printing options 
 		parameters.put("printExcelFormatSimulationResults", false);
-		parameters.put("printSimulationResults", false);
-		parameters.put("showWeeklyCapasity", false);
-		parameters.put("showWeeklyServiceLevel", false);
+		parameters.put("printSimulationResults", true);
+		parameters.put("showWeeklyCapasity", true);
+		parameters.put("showWeeklyServiceLevel", true);
 		
 		//Export to excel options 
-		parameters.put("exportSimulationResults", true);
+		parameters.put("exportSimulationResults", false);
 		parameters.put("fileName", "results");
 		
 		// Simulation options
-		parameters.put("nbrSimulations" , 100);
+		parameters.put("nbrSimulations" , 1);
 		
+		//model options
+		parameters.put("addOrderingConstraint", false);
+		parameters.put("addOrderingVariable", true);
+
+
 		
 		
 
@@ -87,9 +92,17 @@ public class Simulation {
 //		IloNumVar [][][] u = new IloNumVar[T][n][size];
 		IloNumVar [] y = new IloNumVar[n];
 		
+		IloNumVar [][] order = new IloNumVar[T[1]][n];
+		
+
+		
 		for (int i = 0; i < n; i ++) {
 			y[i] = cplex.boolVar("y(" + chunkNames.get(i) + ")");
 			for (int t = T[0]; t < T[1]; t++) {
+				if ((boolean) parameters.get("addOrderingVariable")) { 
+					order[t][i] = cplex.boolVar("order(" + chunkNames.get(i) + ")");
+				
+				}
 				for (int s = 0; s < size; s++) {
 					HashMap<String, Product> chunk = data.get(chunkNames.get(i));
 					Product prod = chunk.get(sizes[s]);
@@ -118,6 +131,12 @@ public class Simulation {
 //						cplex.addGe(cplex.sum(x[t][i][s][0], x[t][i][s][1]), cplex.sum(u[t][i][s], z[t][i][s]), "Constraints on goods in warehouse");
 						cplex.addEq(cplex.sum(x[t][i][s][0], x[t][i][s][1]), z[t][i][s], "Constraints on goods in warehouse");
 						
+						
+						if ((boolean) parameters.get("addOrderingVariable")) { 
+							cplex.addLe(x[t][i][s][0], cplex.prod(maxDemandProduct, order[t][i]), "Constraints on ordering in allowed weeks");
+							cplex.addLe(x[t][i][s][1], cplex.prod(maxDemandProduct, order[t][i]), "Constraints on ordering in allowed weeks");
+//													
+						}
 						cplex.addLe(x[t][i][s][0], cplex.prod(maxDemandProduct, cplex.sum(1, cplex.negative(y[i]))), "Constraints on warehouse goods allocation");
 						cplex.addLe(x[t][i][s][1], cplex.prod(maxDemandProduct, y[i]), "Constraints on warehouse goods allocation");
 //						if (t + 1 != T) {
@@ -133,6 +152,11 @@ public class Simulation {
 		
 		//Add capacity constraint for small and big warehouse
 		cplex = Solver.addCapacityConstraint2020(T, sizes, cplex, x, data, 0.15, 0.15);
+		
+		if ((boolean) parameters.get("addOrderingVariable")) {
+			cplex = Solver.addOrderingConstraint2020(T, sizes, cplex, order, data);
+		}
+
 		
 		//Add relevance score constraint
 //		cplex = Solver.addRelevanceScoreConstraint(T, sizes, cplex, z, data, 0.53);
@@ -234,8 +258,9 @@ public class Simulation {
 					}
 				}
 				if ((boolean) parameters.get("showWeeklyCapasity")) {
-				System.out.println("The capacity used in week " + t + "  is: "+ capasityUsed );
-				System.out.println("The percentage of capacity used in week " + t + "is: "+ capasityUsed / 2700  );
+					System.out.println("The capacity used in week " + t + "  is: "+ capasityUsed );
+					System.out.println("The percentage of capacity used in week " + t + "is: "+ capasityUsed / 2700  );
+					System.out.println();
 				}
 				
 				if ((boolean) parameters.get("showWeeklyServiceLevel")) {
@@ -243,6 +268,8 @@ public class Simulation {
 					System.out.println("The amount of goods sold in week " + t + "is: "+fulfilledDemandWeekly );
 					System.out.println("The amount of goods demanded in week " + t + " is: "+totDemandWeekly );
 					System.out.println("The servicelevel in week " + t + " is: "+ ((double) fulfilledDemandWeekly /totDemandWeekly) );
+					System.out.println();
+
 				}
 				
 				if (showWeeklyCapasity || showWeeklyServiceLevel) {
@@ -553,4 +580,5 @@ public class Simulation {
         out.close();
     
 	}
+	
 }
