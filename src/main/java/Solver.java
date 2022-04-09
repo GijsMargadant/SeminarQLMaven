@@ -186,6 +186,9 @@ public class Solver {
 			//	View the capacity per week
 			ArrayList<ArrayList<Double>> leftoverCapacity = capacityCheck(T, sizes, cplex, x, data);
 			
+//			System.out.println(leftoverCapacity.get(0).toString());
+//			System.out.println(leftoverCapacity.get(1).toString());
+			
 			// View the service level per category over the full years
 			serviceLevel(T, sizes, cplex, z, data);
 			
@@ -200,8 +203,10 @@ public class Solver {
 			
 			int[] yResult = new int[n];
 			for (int i = 0; i < n; i ++) {
-				yResult[i] = (int) cplex.getValue(y[i]);
+				yResult[i] = cplex.getValue(y[i]) > 0.5 ? 1 : 0;
 			}
+			
+			System.out.println(Arrays.toString(yResult));
 			
 			//	Write the excel file to a excel file
 			writeSolutionToDucument(cplex, z, y, data, "Solution_Baseline_2020");
@@ -239,7 +244,6 @@ public class Solver {
 					Product prod = chunk.get(sizes[s]);
 					if (prod != null) {
 						r[t][i][s]= cplex.intVar(0, Integer.MAX_VALUE, "r(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + ")");
-//						r[t][i][s][1] = cplex.intVar(0, Integer.MAX_VALUE, "r(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + "," + 1 + ")");
 					}
 				}
 			}
@@ -254,6 +258,7 @@ public class Solver {
 				Product prod = chunk.get(sizes[s]);
 				if (prod != null) {
 					for (int t = 0; t < T; t++) {
+						System.out.println(prod.getRelevanceScore());
 						objExpr = cplex.sum(objExpr, cplex.prod(prod.getRelevanceScore(), r[t][i][s]));
 						double criticalValue = prod.getProductGroup().equals("General Toys") ? criticalValue98 : criticalValue95;
 						cplex.addLe(r[t][i][s], prod.getSalesVarianceOfWeek(t)*criticalValue);
@@ -278,9 +283,11 @@ public class Solver {
 					}
 				}
 			}
-			cplex.addLe(cap0, capacity0.get(t), "Constraints on warehouse goods allocation");
-			cplex.addLe(cap1, capacity1.get(t), "Constraints on warehouse goods allocation");
+			cplex.addLe(cap0, capacity0.get(t), "Capacity constraints small warehouse");
+			cplex.addLe(cap1, capacity1.get(t), "Capacity constraints big warehouse");
 		}
+		
+		cplex.exportModel("Model.lp");
 		
 		// Solve the model.
 		cplex.solve();
