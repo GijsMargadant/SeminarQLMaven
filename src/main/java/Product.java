@@ -264,9 +264,11 @@ public class Product {
 		if(x < 0) {
 			x = 0;
 		}
-		System.out.println("cleanedStdev is " + cleanedStdev + "cleanedMean is " + cleanedMean);
+		if (cleanedStdev> 1) {
+			System.out.println("cleanedStdev is " + cleanedStdev + "cleanedMean is " + cleanedMean);
+			System.out.println(" levelAndTrend is " + levelAndTrend + " seasonalIndices[season] is " + seasonalIndices[season] + " x is " + x );
+		}
 
-		System.out.println(" levelAndTrend is " + levelAndTrend + " seasonalIndices[season] is " + seasonalIndices[season] + " x is " + x );
 		int sales = (int) Math.round(levelAndTrend * seasonalIndices[season] * x);
 		
 		return sales;
@@ -281,6 +283,33 @@ public class Product {
 		if (sales < 0) {
 			sales = 0;
 		}
+		
+		return sales;
+	}
+	
+	public int pullRandomSalesFloris(int week, Random r) {
+		int season = week % nSeasons;
+		double levelAndTrend = level + (nWeeks + week) * trend;
+		
+		// Pull from normal distribution
+		double x = r.nextGaussian() * cleanedStdev +  cleanedMean;
+		
+		if (cleanedStdev> 1) {
+			System.out.println("cleanedStdev is " + cleanedStdev + "cleanedMean is " + cleanedMean);
+			System.out.println(" levelAndTrend is " + levelAndTrend + " seasonalIndices[season] is " + seasonalIndices[season] + " x is " + x );
+		}
+
+		int sales = Math.max(0, (int) Math.round(levelAndTrend * seasonalIndices[season] + x)) ;
+		
+		return sales;
+	}
+	
+	
+	public int getPredictedDemandFloris(int week) {
+		int season = week % nSeasons;
+		double levelAndTrend = level + (nWeeks + week) * trend;
+		
+		int sales = Math.max(0, (int) Math.round(levelAndTrend * seasonalIndices[season])) ;
 		
 		return sales;
 	}

@@ -36,82 +36,21 @@ public class Simulation {
 		
 		
 		System.out.println("De data is geladen");
-		
-		
-		/*
-		int size = sizes.length;
-		ArrayList<String> chunkNames = new ArrayList<String>(dt.keySet());
-		int n = chunkNames.size();
-		
-		for (int i = 0; i < n; i ++) {
-			for (int t = 0; t < 1; t++) {
-				for (int s = 0; s < size; s++) {
-					HashMap<String, Product> chunk = dt.get(chunkNames.get(i));
-					Product prod = chunk.get(sizes[s]);
-					if (prod != null) {
-						if (prod.getAverageAverageM3() == 1) {
-							System.out.println(prod.getAverageAverageM3());
-							for (int j =0; j < 104; j ++) {
-								System.out.print(prod.getAverageM3(j));
-								
-							}
-							System.out.println();
-
-						}
-						
-						if (Double.isNaN(prod.getAverageAverageM3())) {
-							System.out.println(prod.getAverageAverageM3());
-							System.out.println(prod.getAverageM3(t));
-						}
-					}
-				}
-			}
-		}
-		*/
-		
-		solve2020(new int[]{0,52}, sizes, dt);
 
 		
+		HashMap<String, Object> parameters = new HashMap<String, Object>(); 
 		
-		/*
-		int[] T = new int[] {0,2};
+		parameters.put("usePlusXInSales", true);
+		parameters.put("nbrSimulations" , 1);
 		
-		int size = sizes.length;
-		ArrayList<String> chunkNames = new ArrayList<String>(dt.keySet());
-		int n = chunkNames.size();
-		int[][][] z = new int[T[1]][n][size];
-		int[][][] demand = new int[T[1]][n][size];
-		
-		System.out.println(chunkNames.get(0));
-		System.out.println(dt.get(0).get(chunkNames.get(0)).toString());
-		
-		z[0][0][3] = 40;
-		demand[0][0][3] = 60;
-		
-//		simulationMain(T, sizes, dt.get(0), z, demand);
-		
-        Random ran = new Random(1234);
+		solve2020(new int[]{0,1}, sizes, dt, 1, parameters);
 
-		//Adding a bit of randomness to the demand
-		for (int i = 0; i < n; i ++) {
-			HashMap<String, Product> chunk = dt.get(chunkNames.get(i));
-			for (int s = 0; s < size; s++) {
-				Product prod = chunk.get(sizes[s]);
-				if (prod != null) {
-					demand[0][i][s] = (int) (prod.getSales(0) + Math.round( Math.sqrt(prod.getSales(0)) * ran.nextGaussian()));
-					if (demand[0][i][s] < 0 ) {
-						demand[0][i][s] = 0;
-					}
-					z[0][i][s] = prod.getSales(0);
-				}
-			}
-		}
-		simulationMain(T, sizes, dt, z, demand);
-		*/
+		
 		
 	}
 	
-	public static void solve2020(int[] T, String[] sizes, HashMap<String, HashMap<String, Product>> data) throws IloException
+	public static void solve2020(int[] T, String[] sizes, HashMap<String, HashMap<String, Product>> data,
+			int nbrSimulations, HashMap<String, Object> parameters) throws IloException
 	{
 		// Create the model.
 		IloCplex cplex = new IloCplex ();
@@ -306,7 +245,7 @@ public class Simulation {
 			
 			/** Running the simulation using the ordering levels from the solution */
 			Random r = new Random(1234);
-			Simulation.getSimulationResults(T, sizes, data, zSolution, 100);
+			Simulation.getSimulationResults(T, sizes, data, zSolution, nbrSimulations, parameters);
 			
 		}
 		else
@@ -316,14 +255,14 @@ public class Simulation {
 	}
 	
 	public static void getSimulationResults(int[] T, String[] sizes, HashMap<String, HashMap<String, Product>> data,
-			int [][][] zSolution, int nbr) throws IloException {
+			int [][][] zSolution, int nbr, HashMap<String, Object> parameters) throws IloException {
 		Random r = new Random(1234);
 		int sizeOfResultsSimulation = 4 + T[1] - T[0];
 		
 		ArrayList<ArrayList<Double>> results = new ArrayList<ArrayList<Double>>();
 		
 		for (int i = 0; i < nbr; i++) {
-			results.add(Simulation.simulationMain(T, sizes, data, zSolution, r));
+			results.add(Simulation.simulationMain(T, sizes, data, zSolution, r, parameters));
 		
 		}
 		
@@ -399,7 +338,7 @@ public class Simulation {
 	 */
 	public static ArrayList<Double> simulationMain(int[] T, String[] sizes,
 			HashMap<String, HashMap<String, Product>> data,
-			int[][][] z, Random r) throws IloException {
+			int[][][] z, Random r, HashMap<String, Object> parameters) throws IloException {
 		
 		int size = sizes.length;
 		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
@@ -469,7 +408,11 @@ public class Simulation {
 					Product prod = chunk.get(sizes[s]);
 					if (prod != null) {
 						//Get the demand for this products
-						demand = prod.pullRandomSales(t, r);
+						if ((boolean) parameters.get("usePlusXInSales")) {
+							demand = prod.pullRandomSalesFloris(t, r);
+						}else{
+							demand = prod.pullRandomSales(t, r);
+						}
 						
 						demandWeek += demand;
 						
