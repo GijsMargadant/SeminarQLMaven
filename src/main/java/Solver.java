@@ -28,14 +28,18 @@ public class Solver {
 		String[] sizes = {"XXXS", "XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL"};
 		
 		//read data for year 2018
-		ArrayList<Integer> years = new ArrayList<Integer>(Arrays.asList(2020));
-		ArrayList<HashMap<String, HashMap<String, Product>>> dt = readData(new ArrayList<Integer>(Arrays.asList(2020)));
+		ArrayList<Integer> years = new ArrayList<Integer>();
+		years.add(2018);
+		years.add(2019);
+		years.add(2020);
+		ArrayList<HashMap<String, HashMap<String, Product>>> dt = readData(years);
+		variance(52, sizes, dt);
 
 		//Try to build and solve the model.
 		
 		try
 		{
-			solve(52, sizes, dt.get(0));
+			solve(52, sizes, dt.get(2));
 //			solveForSubperiod(new int[]{0,52}, sizes, dt.get(0));
 //			solveForSubperiod(new int[]{45,48}, sizes, dt.get(0));
 		}
@@ -261,8 +265,7 @@ public class Solver {
 //						System.out.println(prod.getRelevanceScore());
 						objExpr = cplex.sum(objExpr, cplex.prod(prod.getRelevanceScore(), r[t][i][s]));
 						double criticalValue = prod.getProductGroup().equals("General Toys") ? criticalValue98 : criticalValue95;
-						System.out.println(prod.getSalesVarianceOfWeek(t)*criticalValue);
-						cplex.addLe(r[t][i][s], prod.getSalesVarianceOfWeek(t)*criticalValue);
+						cplex.addGe(r[t][i][s], Math.sqrt(Math.abs(prod.getSalesVarianceOfWeek(t)))*criticalValue);
 					}
 				}
 			}
@@ -310,6 +313,45 @@ public class Solver {
 		}
 		
 		cplex.close();
+	}
+	
+	public static void variance(int T, String[] sizes, ArrayList<HashMap<String, HashMap<String, Product>>> dt) {
+		HashMap<String, HashMap<String, Product>> dt2018 = dt.get(0);
+		HashMap<String, HashMap<String, Product>> dt2019 = dt.get(1);
+		HashMap<String, HashMap<String, Product>> dt2020 = dt.get(2);
+		
+		int size = sizes.length;
+		ArrayList<String> chunkNames = new ArrayList<String>(dt2018.keySet());
+		int n = chunkNames.size();
+		
+		for (int i = 0; i < n; i ++) {
+			for (int s = 0; s < size; s++) {
+				HashMap<String, Product> chunk18 = dt2018.get(chunkNames.get(i));
+				HashMap<String, Product> chunk19 = dt2019.get(chunkNames.get(i));
+				HashMap<String, Product> chunk20 = dt2020.get(chunkNames.get(i));
+				Product prod18 = chunk18 != null ? chunk18.get(sizes[s]) : null;
+				Product prod19 = chunk19 != null ? chunk19.get(sizes[s]) : null;
+				Product prod20 = chunk20 != null ? chunk20.get(sizes[s]) : null;
+				double sum = 0;
+				double squared = 0;
+				if (prod18 != null && prod19 != null && prod20 != null) {
+					for (int t = 0; t < T; t++) {
+						if (t < 45 || t == 52) {
+							sum += prod18.getSales(t);
+							squared += prod18.getSales(t) * prod18.getSales(t);
+							sum += prod19.getSales(t);
+							squared += prod19.getSales(t) * prod19.getSales(t);
+						}
+						if (t == 1) {
+							sum += prod20.getSales(t);
+							squared += prod20.getSales(t) * prod20.getSales(t);
+						}
+					}
+					System.out.println((squared - sum * sum / T)/T);
+					prod20.setSalesVarianceOfWeek((squared - sum * sum / T)/T);
+				}
+			}
+		}
 	}
 	
 	public static ArrayList<ArrayList<Double>> leftoverCapacity(int T, String[] sizes, IloCplex cplex, IloNumVar[] y, IloNumVar[][][][] x, HashMap<String, HashMap<String, Product>> data) throws IloException {

@@ -28,6 +28,8 @@ public class Product {
 	private double unitStorageCost;
 	private double relevanceScore;
 	private int year;
+	
+	private double variance;
 
 	private boolean[] dataPresent;
 	private double z = 3.5; // z statistic for 99% confidence level
@@ -116,10 +118,15 @@ public class Product {
 	 * @return
 	 */
 	public double getSalesVarianceOfWeek(int week) {
-		int a = weeklySales[week];
-		int b = weeklySales[week + nWeeks];
-		int diff = b - a;
-		return diff * diff * 0.5;
+//		int a = weeklySales[week];
+//		int b = weeklySales[week + nWeeks];
+//		int diff = b - a;
+//		return diff * diff * 0.5;
+		return variance;
+	}
+	
+	public void setSalesVarianceOfWeek(double var) {
+		variance = var;
 	}
 	
 	//-------------------------------------------------------------------
