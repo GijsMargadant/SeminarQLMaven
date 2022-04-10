@@ -99,13 +99,14 @@ public class Solver {
 		// Create the variables and their domain restrictions.
 		IloNumVar [][][][] x = new IloNumVar[T][n][size][2];
 		IloNumVar [][][] z = new IloNumVar[T][n][size];
-//		IloNumVar [][][] u = new IloNumVar[T][n][size];
+		IloNumVar [][] u = new IloNumVar[n][size];
 		IloNumVar [] y = new IloNumVar[n];
 		
 		for (int i = 0; i < n; i ++) {
 			y[i] = cplex.boolVar("y(" + chunkNames.get(i) + ")");
-			for (int t = 0; t < T; t++) {
-				for (int s = 0; s < size; s++) {
+			for (int s = 0; s < size; s++) {
+				u[i][s] = cplex.boolVar("u(" + chunkNames.get(i) + "," + sizes[s] + ")");
+				for (int t = 0; t < T; t++) {
 					HashMap<String, Product> chunk = data.get(chunkNames.get(i));
 					Product prod = chunk.get(sizes[s]);
 					if (prod != null) {
@@ -138,6 +139,14 @@ public class Solver {
 //						if (t + 1 != T) {
 //							cplex.addEq(cplex.sum(u[t + 1][i][s], z[t][i][s]), cplex.sum(x[t][i][s][0], x[t][i][s][1]), "Inventory at the beginning of the period");
 //						}
+						if (t > 42 & t%2 == 1 & t != 51) {
+							cplex.addGe(cplex.sum(cplex.sum(x[t][i][s][0], x[t][i][s][1]), cplex.negative(cplex.sum(x[t + 1][i][s][0], x[t + 1][i][s][1]))),
+									cplex.sum(cplex.prod(prod.getSales(t), u[i][s]), cplex.negative(cplex.prod(maxDemandProduct, cplex.sum(1, cplex.negative(u[i][s]))))));
+						}
+						else if (t > 42 & t%2 == 0) {
+							cplex.addGe(cplex.sum(cplex.sum(x[t][i][s][0], x[t][i][s][1]), cplex.negative(cplex.sum(x[t + 1][i][s][0], x[t + 1][i][s][1]))),
+									cplex.sum(cplex.prod(prod.getSales(t), cplex.sum(1, cplex.negative(u[i][s]))), cplex.negative(cplex.prod(maxDemandProduct, u[i][s]))));
+						}
 					}
 				}
 			}
@@ -162,7 +171,7 @@ public class Solver {
 		}
 		
 		//Add the service level constraints
-		cplex = serviceLevelConstraintPerCategorie(T, sizes, cplex, z, data);
+//		cplex = serviceLevelConstraintPerCategorie(T, sizes, cplex, z, data);
 		
 		
 		// The last three parameters are nbr of steps, size of the steps, and value of first step. 
