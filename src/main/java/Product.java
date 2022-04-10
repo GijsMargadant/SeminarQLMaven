@@ -818,7 +818,6 @@ public class Product {
 		this.cleanedMean = cleanedMean;
 	}
 
-
 	public double getCleanedStdev() {
 		return cleanedStdev;
 	}
