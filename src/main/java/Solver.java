@@ -210,7 +210,7 @@ public class Solver {
 				yResult[i] = cplex.getValue(y[i]) > 0.5 ? 1 : 0;
 			}
 			
-			System.out.println(Arrays.toString(yResult));
+//			System.out.println(Arrays.toString(yResult));
 			
 			//	Write the excel file to a excel file
 			writeSolutionToDucument(cplex, z, y, data, "Solution_Baseline_2020");
@@ -247,7 +247,8 @@ public class Solver {
 					HashMap<String, Product> chunk = data.get(chunkNames.get(i));
 					Product prod = chunk.get(sizes[s]);
 					if (prod != null) {
-						r[t][i][s]= cplex.intVar(0, Integer.MAX_VALUE, "r(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + ")");
+						double criticalValue = prod.getProductGroup().equals("General Toys") ? criticalValue98 : criticalValue95;
+						r[t][i][s]= cplex.intVar(0, (int) (Math.sqrt(Math.abs(prod.getSalesVarianceOfWeek(t)))*criticalValue), "r(" + (t+1) + "," + chunkNames.get(i) + "," + sizes[s] + ")");
 					}
 				}
 			}
@@ -264,8 +265,8 @@ public class Solver {
 					for (int t = 0; t < T; t++) {
 //						System.out.println(prod.getRelevanceScore());
 						objExpr = cplex.sum(objExpr, cplex.prod(prod.getRelevanceScore(), r[t][i][s]));
-						double criticalValue = prod.getProductGroup().equals("General Toys") ? criticalValue98 : criticalValue95;
-						cplex.addGe(r[t][i][s], Math.sqrt(Math.abs(prod.getSalesVarianceOfWeek(t)))*criticalValue);
+//						double criticalValue = prod.getProductGroup().equals("General Toys") ? criticalValue98 : criticalValue95;
+//						cplex.addLe(r[t][i][s], Math.sqrt(Math.abs(prod.getSalesVarianceOfWeek(t)))*criticalValue);
 					}
 				}
 			}
@@ -347,7 +348,7 @@ public class Solver {
 							squared += prod20.getSales(t) * prod20.getSales(t);
 						}
 					}
-					System.out.println((squared - sum * sum / T)/T);
+//					System.out.println((squared - sum * sum / T)/T);
 					prod20.setSalesVarianceOfWeek((squared - sum * sum / T)/T);
 				}
 			}
