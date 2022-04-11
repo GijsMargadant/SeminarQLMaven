@@ -141,11 +141,11 @@ public class Solver {
 //							cplex.addEq(cplex.sum(u[t + 1][i][s], z[t][i][s]), cplex.sum(x[t][i][s][0], x[t][i][s][1]), "Inventory at the beginning of the period");
 //						}
 //						if (t > 42 & t%2 == 1 & t != 51) {
-						if (t > 42 & t!=51) {
-							cplex.addGe(cplex.sum(cplex.sum(x[t][i][s][0], x[t][i][s][1]), cplex.negative(cplex.sum(x[t + 1][i][s][0], x[t + 1][i][s][1]))),
-									cplex.sum(cplex.prod(prod.getSales(t), u[t][i]), cplex.negative(cplex.sum(cplex.sum(prod.getSales(t), cplex.negative(z[t][i][s])),cplex.prod(1000000, cplex.sum(1, cplex.negative(u[t][i])))))));
-							cplex.addGe(cplex.sum(u[t][i], u[t+1][i]), 1);
-						}
+//						if (t > 42 & t!=51) {
+//							cplex.addGe(cplex.sum(cplex.sum(x[t][i][s][0], x[t][i][s][1]), cplex.negative(cplex.sum(x[t + 1][i][s][0], x[t + 1][i][s][1]))),
+//									cplex.sum(cplex.prod(prod.getSales(t), u[t][i]), cplex.negative(cplex.sum(cplex.sum(prod.getSales(t), cplex.negative(z[t][i][s])),cplex.prod(1000000, cplex.sum(1, cplex.negative(u[t][i])))))));
+//							cplex.addGe(cplex.sum(u[t][i], u[t+1][i]), 1);
+//						}
 //						}
 //						else if (t > 42 & t%2 == 0) {
 //							cplex.addGe(cplex.sum(cplex.sum(x[t][i][s][0], x[t][i][s][1]), cplex.negative(cplex.sum(x[t + 1][i][s][0], x[t + 1][i][s][1]))),
