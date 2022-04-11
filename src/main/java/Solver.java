@@ -105,9 +105,9 @@ public class Solver {
 		
 		for (int i = 0; i < n; i ++) {
 			y[i] = cplex.boolVar("y(" + chunkNames.get(i) + ")");
-			for (int s = 0; s < size; s++) {
-				u[i][s] = cplex.boolVar("u(" + chunkNames.get(i) + "," + sizes[s] + ")");
-				for (int t = 0; t < T; t++) {
+			for (int t = 0; t < T; t++) {
+				u[t][i] = cplex.boolVar("u(" + (t+1) + "," + chunkNames.get(i) +")");
+				for (int s = 0; s < size; s++) {
 					HashMap<String, Product> chunk = data.get(chunkNames.get(i));
 					Product prod = chunk.get(sizes[s]);
 					if (prod != null) {
@@ -140,14 +140,17 @@ public class Solver {
 //						if (t + 1 != T) {
 //							cplex.addEq(cplex.sum(u[t + 1][i][s], z[t][i][s]), cplex.sum(x[t][i][s][0], x[t][i][s][1]), "Inventory at the beginning of the period");
 //						}
-						if (t > 42 & t%2 == 1 & t != 51) {
+//						if (t > 42 & t%2 == 1 & t != 51) {
+						if (t > 42 & t!=51) {
 							cplex.addGe(cplex.sum(cplex.sum(x[t][i][s][0], x[t][i][s][1]), cplex.negative(cplex.sum(x[t + 1][i][s][0], x[t + 1][i][s][1]))),
-									cplex.sum(cplex.prod(prod.getSales(t), u[i][s]), cplex.negative(cplex.prod(maxDemandProduct, cplex.sum(1, cplex.negative(u[i][s]))))));
+									cplex.sum(cplex.prod(prod.getSales(t), u[t][i]), cplex.negative(cplex.prod(maxDemandProduct, cplex.sum(1, cplex.negative(u[t][i]))))));
+							cplex.addLe(cplex.sum(u[t][i], u[t+1][i]), 1);
 						}
-						else if (t > 42 & t%2 == 0) {
-							cplex.addGe(cplex.sum(cplex.sum(x[t][i][s][0], x[t][i][s][1]), cplex.negative(cplex.sum(x[t + 1][i][s][0], x[t + 1][i][s][1]))),
-									cplex.sum(cplex.prod(prod.getSales(t), cplex.sum(1, cplex.negative(u[i][s]))), cplex.negative(cplex.prod(maxDemandProduct, u[i][s]))));
-						}
+//						}
+//						else if (t > 42 & t%2 == 0) {
+//							cplex.addGe(cplex.sum(cplex.sum(x[t][i][s][0], x[t][i][s][1]), cplex.negative(cplex.sum(x[t + 1][i][s][0], x[t + 1][i][s][1]))),
+//									cplex.sum(cplex.prod(prod.getSales(t), cplex.sum(1, cplex.negative(u[i][s]))), cplex.negative(cplex.prod(maxDemandProduct, u[i][s]))));
+//						}
 					}
 				}
 			}
