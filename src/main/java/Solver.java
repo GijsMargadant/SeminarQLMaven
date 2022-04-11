@@ -31,8 +31,9 @@ public class Solver {
 		ArrayList<Integer> years = new ArrayList<Integer>();
 		years.add(2018);
 		years.add(2019);
-		years.add(2020);
-		ArrayList<HashMap<String, HashMap<String, Product>>> dt = readData(years);
+//		years.add(2020);
+		ArrayList<HashMap<String, HashMap<String, Product>>> dt = readData("dataset - Copy.xlsx", years);
+		dt.add(readData("Forecast 2020.xlsx", new ArrayList<Integer>(Arrays.asList(2020))).get(0));
 		variance(52, sizes, dt);
 
 		//Try to build and solve the model.
@@ -55,18 +56,18 @@ public class Solver {
 	 * @param years An arrayList with the years for which the data needs to be retrieved. 
 	 * @return The data
 	 */
-	public static ArrayList<HashMap<String, HashMap<String, Product>>> readData(ArrayList<Integer> years){
+	public static ArrayList<HashMap<String, HashMap<String, Product>>> readData(String filename, ArrayList<Integer> years){
 		File data;
 		File relevanceScore;
 		File warehouseCost;
 		// Check your operating system in order to correctly specify file paths
 		String os = System.getProperty("os.name").toLowerCase();
 		if (os.indexOf("win") >= 0) {
-			data = new File(".\\dataFiles\\Forecast.xlsx");
+			data = new File(".\\dataFiles\\" + filename);
 			relevanceScore = new File(".\\dataFiles\\EUR_BusinessCase_Chunk_RelevanceScore_V2.xlsx");
 			warehouseCost = new File(".\\dataFiles\\EUR_BusinessCase_Sizegroup_Costs.xlsx");
 		}else {
-			data = new File("./dataFiles/Forecast.xlsx");
+			data = new File("./dataFiles/" + filename);
 			relevanceScore = new File("./dataFiles/EUR_BusinessCase_Chunk_RelevanceScore_V2.xlsx");
 			warehouseCost = new File("./dataFiles/EUR_BusinessCase_Sizegroup_Costs.xlsx");
 		}

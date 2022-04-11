@@ -1,6 +1,7 @@
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -86,7 +87,7 @@ public class CustomDataReader {
 			sizeGroupCostsWb = WorkbookFactory.create(new FileInputStream(sizeGroupCosts));
 			long tac = System.currentTimeMillis();
 			System.out.println("Time spent creating workbooks: " + (tac - tic)/1000 + " s");
-		} catch (Exception e) {
+		} catch (IOException e) {
 			throw new FileNotFoundException();
 		}
 	}
