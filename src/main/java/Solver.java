@@ -100,7 +100,7 @@ public class Solver {
 		// Create the variables and their domain restrictions.
 		IloNumVar [][][][] x = new IloNumVar[T][n][size][2];
 		IloNumVar [][][] z = new IloNumVar[T][n][size];
-		IloNumVar [][] u = new IloNumVar[n][size];
+		IloNumVar [][] u = new IloNumVar[T][n];
 		IloNumVar [] y = new IloNumVar[n];
 		
 		for (int i = 0; i < n; i ++) {
@@ -143,8 +143,8 @@ public class Solver {
 //						if (t > 42 & t%2 == 1 & t != 51) {
 						if (t > 42 & t!=51) {
 							cplex.addGe(cplex.sum(cplex.sum(x[t][i][s][0], x[t][i][s][1]), cplex.negative(cplex.sum(x[t + 1][i][s][0], x[t + 1][i][s][1]))),
-									cplex.sum(cplex.prod(prod.getSales(t), u[t][i]), cplex.negative(cplex.prod(maxDemandProduct, cplex.sum(1, cplex.negative(u[t][i]))))));
-							cplex.addLe(cplex.sum(u[t][i], u[t+1][i]), 1);
+									cplex.sum(cplex.prod(prod.getSales(t), u[t][i]), cplex.negative(cplex.sum(cplex.sum(prod.getSales(t), cplex.negative(z[t][i][s])),cplex.prod(maxDemandProduct, cplex.sum(1, cplex.negative(u[t][i])))))));
+							cplex.addGe(cplex.sum(u[t][i], u[t+1][i]), 1);
 						}
 //						}
 //						else if (t > 42 & t%2 == 0) {
