@@ -148,7 +148,7 @@ public class Product {
 		level = beta[0];
 		trend = beta[1];
 		// Final cleaning
-		detrendData(deseasonalizedData);
+		delevelAndDetrendData(deseasonalizedData);
 		// calculate the mean of the cleaned data
 		cleanedMean = mean(cleanedSales);
 		cleanedStdev = stdev2(cleanedSales, cleanedMean);
@@ -326,7 +326,7 @@ public class Product {
 	 */
 	public int pullRandomSales(int week, Random r) {
 		int season = week % nSeasons;
-		double trendVal = (nWeeks + week) * trend;
+		double trendVal = level + (nWeeks + week) * trend;
 		
 		// Pull from normal distribution
 		double x = r.nextGaussian() * cleanedStdev + cleanedMean;
@@ -361,9 +361,9 @@ public class Product {
 	 */
 	public int pullRandomSalesPoisson(int week, Random r) {
 		int season = week % nSeasons;
-		double trendVal = (nWeeks + week) * trend;
+		double trendVal = level + (nWeeks + week) * trend;
 		
-		double p = Math.exp(-cleanedMean);
+		double p = Math.exp(-cleanedMean * trendVal);
 		int i = 0;
 		double U = r.nextDouble();
 		double F = p;
@@ -373,7 +373,7 @@ public class Product {
 			p *= cleanedMean / (i);
 			F += p;
 		}
-		return (int) Math.round(trendVal * seasonalIndices[season] * i);
+		return (int) Math.round(seasonalIndices[season] * i);
 	}
 	
 	

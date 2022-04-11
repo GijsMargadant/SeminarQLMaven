@@ -469,7 +469,8 @@ public class Simulation {
 					Product prod = chunk.get(sizes[s]);
 					if (prod != null) {
 						//Get the demand for this products
-						demand = prod.pullRandomSales(t, r);
+//						demand = prod.pullRandomSales(t, r);
+						demand = prod.pullRandomSalesPoisson(t, r);
 						
 						demandWeek += demand;
 						
@@ -737,8 +738,10 @@ public class Simulation {
   
         // .xlsx is the format for Excel Sheets...
         // writing the workbook into the file...
+//        FileOutputStream out = new FileOutputStream(
+//        		new File("/Users/floris/Documents/Studie/Year_3_Block_4/Seminar/Results.xlsx"));
         FileOutputStream out = new FileOutputStream(
-        		new File("/Users/floris/Documents/Studie/Year_3_Block_4/Seminar/Results.xlsx"));
+        		new File("C:\\Users\\gijsm\\Documents\\DOCUMENTEN\\School\\SeminarCaseStudy\\SolutionFiles\\Results.xlsx"));
 
         workbook.write(out);
         out.close();
