@@ -38,12 +38,12 @@ public class Simulation {
 		//Set certain parameters for the model;
 		
 		//Demand options 
-		parameters.put("usePlusXInSales", true);
-		parameters.put("usePoisson", false);
+		parameters.put("usePlusXInSales", false); //Should not be put true, old option 
+		parameters.put("usePoisson", false); //If true uses Poisson distribution otherwise uses normal
 		
 		//Printing options 
 		parameters.put("printExcelFormatSimulationResults", false);
-		parameters.put("printSimulationResults", true);
+		parameters.put("printSimulationResults", false);
 		
 		parameters.put("showWeeklyCapasity", true);
 		parameters.put("showWeeklyServiceLevel", true);
@@ -54,19 +54,21 @@ public class Simulation {
 		
 		//Export to excel options 
 		parameters.put("exportSimulationResults", false);
+		parameters.put("exportOnlyAverageValues", true);
 		parameters.put("fileName", "results"); //Does not work anymore
-		parameters.put("filePath", "/Users/floris/Documents/Studie/Year_3_Block_4/Seminar/results.xlsx"); //Change this to the file path you want to 
+		parameters.put("filePath", "/Users/floris/Documents/Studie/Year_3_Block_4/Seminar/results/results_100_sim_poisson.xlsx"); //Change this to the file path you want to 
 		
 		// Simulation options
-		parameters.put("nbrSimulations" , 1);
+		parameters.put("nbrSimulations" , 100);
 		
 		//model options
 		parameters.put("addOrderingConstraint", false); //Does not work leave false
 		parameters.put("addOrderingVariable", true); //Adds the two weeks ordering constraint weeks 44 -52
 
-		
+		parameters.put("useModelWithTransfer", false); //Does not terminate
 
-		
+
+		/*
 		ArrayList<String> chunkNames = new ArrayList<String>(dt.keySet());
 		int n = chunkNames.size();
 		
@@ -85,9 +87,14 @@ public class Simulation {
 				}
 			}
 		}
-//		solve2020(new int[]{0,52}, sizes, dt, parameters);
+		*/
+		
 //		Simulation.solve2020WithTransfer(new int[]{0,52}, sizes, dt, parameters);
-		Simulation.solve2020WithTransfer(new int[]{44, 52}, sizes, dt, parameters);
+		if ((boolean) parameters.get("useModelWithTransfer")) {
+			Simulation.solve2020WithTransfer(new int[]{44, 52}, sizes, dt, parameters);
+		}else {
+			solve2020(new int[]{0,52}, sizes, dt, parameters);
+		}
 		
 		
 	}
@@ -231,7 +238,7 @@ public class Simulation {
 						HashMap<String, Product> chunk = data.get(chunkNames.get(i));
 						Product prod = chunk.get(sizes[s]);
 						if (prod != null) {
-							zSolution[t][i][s] = (int) cplex.getValue(z[t][i][s]);
+							zSolution[t][i][s] = (int) Math.round(cplex.getValue(z[t][i][s]));
 							xSolution[t][i][s][0] = (int) cplex.getValue(x[t][i][s][0]);
 							xSolution[t][i][s][1] = (int) cplex.getValue(x[t][i][s][1]);
 						}
@@ -241,8 +248,6 @@ public class Simulation {
 			
 			
 			/** Set output parameters here */
-			boolean showWeeklyCapasity = false;
-			boolean showWeeklyServiceLevel = false;
 			
 			
 			//Calculate service level
@@ -293,10 +298,6 @@ public class Simulation {
 					System.out.println();
 
 				}
-				
-				if (showWeeklyCapasity || showWeeklyServiceLevel) {
-					System.out.println();
-				}
 			}
 			
 			System.out.println("The amount of goods sold is: "+fulfilledDemand );
@@ -323,7 +324,7 @@ public class Simulation {
 	public static void getSimulationResults(int[] T, String[] sizes, HashMap<String, HashMap<String, Product>> data,
 			int [][][] zSolution, HashMap<String, Object> parameters) throws IloException {
 		Random r = new Random(1234);
-		int sizeOfResultsSimulation = 4 + T[1] - T[0];
+		int sizeOfResultsSimulation = 4 + (T[1] - T[0]) * 4;
 		
 		ArrayList<ArrayList<Double>> results = new ArrayList<ArrayList<Double>>();
 		
@@ -333,6 +334,51 @@ public class Simulation {
 		}
 		
 		//Print results
+		HashMap<String, Double> averageResults = new HashMap<String, Double>(); 
+		for (int i = 0; i < sizeOfResultsSimulation; i++) {
+			double sum  = 0;
+			int count = 0;
+			for (int j = 0; j < (int) parameters.get("nbrSimulations"); j++) {
+				sum += results.get(j).get(i);
+				count ++;
+				
+			}
+			
+			double average = sum / count;
+			switch(i) {
+				case 0: 
+					averageResults.put("Revenue", average);
+					break;
+				case 1: 
+					averageResults.put("Products sold", average);
+					break;
+				case 2: 
+					averageResults.put("Products demanded ", average);
+					break;
+				case 3: 
+					averageResults.put("Service level whole year", average);
+					break; 
+			}
+			if ( i >= 4 && i < 4 + T[1] - T[0]) {
+				averageResults.put("Service level for week " + (T[0] + i - 3), average);
+			}
+			
+			if ( i >= 4 + (T[1] - T[0]) * 1 && i < 4 + (T[1] - T[0]) * 2) {
+				averageResults.put("Revenue for week " + (T[0] + i - 3 - (T[1] - T[0]) * 1), average);
+			}
+			
+			if ( i >= 4 + (T[1] - T[0]) * 2 && i < 4 + (T[1] - T[0]) * 3) {
+				averageResults.put("Capacity for week " + (T[0] + i - 3 - (T[1] - T[0]) * 2), average);
+			}
+			
+			int factor = 3;
+			if ( i >= 4 + (T[1] - T[0]) * factor && i < 4 + (T[1] - T[0]) * (factor + 1)) {
+				averageResults.put("Relevance Score for week " + (T[0] + i - 3 - (T[1] - T[0]) * factor), average);
+			}
+		
+		}
+
+		
 		
 		if ((boolean) parameters.get("printExcelFormatSimulationResults")) {
 			for (int i = 0; i < (int) parameters.get("nbrSimulations"); i++) {
@@ -352,7 +398,7 @@ public class Simulation {
 	
 			}
 		}
-		//This only works for Floris at the moment
+
 		if ((boolean) parameters.get("exportSimulationResults")) {
 			try {
 				Simulation.writeToExcel(results, parameters);
@@ -363,7 +409,19 @@ public class Simulation {
 				e.printStackTrace();
 			}
 		}
-
+		
+		if ((boolean) parameters.get("exportOnlyAverageValues")) {
+			try {
+				Simulation.writeToExcelAverage(averageResults, parameters);
+				System.out.println("The results are written to an excel sheet");
+	
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}		
+		
+		
 	}
 	
 	/**
@@ -405,12 +463,19 @@ public class Simulation {
 		int totalDemand = 0; // the total amount of products demanded.
 		
 		ArrayList<Double> weeklyServiceLevel = new ArrayList<Double>();
+		ArrayList<Double> weeklyRevenue = new ArrayList<Double>();
+		ArrayList<Double> weeklyCapacity = new ArrayList<Double>();
+		ArrayList<Double> weeklyRelevanceScore = new ArrayList<Double>();
 		
 		
 		for (int t = T[0]; t < T[1]; t++) {
 			
 			int salesWeek =0;
 			int demandWeek =0;
+			double revenueWeek = 0;
+			double capacityWeek = 0;
+			double relevanceScoreWeek = 0;
+
 			
 			/** Ordering the new products */
 			
@@ -432,6 +497,9 @@ public class Simulation {
 							totalThrewAway += storage[t][i][s] -z[t][i][s] ;
 							storage[t][i][s]  = z[t][i][s];
 						}
+						capacityWeek += storage[t][i][s] * prod.getAverageAverageM3();
+						relevanceScoreWeek+= storage[t][i][s] * prod.getRelevanceScore();
+						
 					}
 				}
 				//Check if an order is placed if so add to the total amount of orders for ordering cost.
@@ -461,6 +529,7 @@ public class Simulation {
 						if (demand <= storage[t][i][s]) {
 							//Update revenue
 							revenue += prod.getAveragePrice(t) * demand;
+							revenueWeek += prod.getAveragePrice(t) * demand;
 							revenueTheoretical += prod.getAveragePrice(t) * demand;
 							//Update relevance score
 							relevanceSoldProducts += prod.getRelevanceScore() * demand;
@@ -475,6 +544,7 @@ public class Simulation {
 							storage[t][i][s] -= demand;
 						}else {
 							//Update revenue
+							revenueWeek += prod.getAveragePrice(t) * storage[t][i][s];
 							revenue += prod.getAveragePrice(t) * storage[t][i][s];
 							revenueTheoretical += prod.getAveragePrice(t) * demand;
 							//Update relevance score
@@ -492,6 +562,9 @@ public class Simulation {
 				}
 			}
 			weeklyServiceLevel.add(((double) salesWeek )/ demandWeek);
+			weeklyRevenue.add(revenueWeek);
+			weeklyCapacity.add(capacityWeek);
+			weeklyRelevanceScore.add(relevanceScoreWeek);
 			
 			/** Moving on to the next week*/ 
 			for (int i = 0; i < n; i ++) {
@@ -529,6 +602,9 @@ public class Simulation {
 		results.add((double) totalDemand);
 		results.add((double)productsSold / totalDemand);
 		results.addAll(weeklyServiceLevel);
+		results.addAll(weeklyRevenue);
+		results.addAll(weeklyCapacity);
+		results.addAll(weeklyRelevanceScore);
 		
 		return results;
 	}	
@@ -592,6 +668,82 @@ public class Simulation {
         	}
         }
         
+  
+        // .xlsx is the format for Excel Sheets...
+        // writing the workbook into the file...
+        FileOutputStream out = new FileOutputStream(
+        		new File((String) parameters.get("filePath")));
+
+        workbook.write(out);
+        out.close();
+    
+	}
+	
+	public static void writeToExcelAverage(HashMap<String, Double> results, HashMap<String, Object> parameters) throws IOException {
+		// workbook object
+        XSSFWorkbook workbook = new XSSFWorkbook();
+  
+        // spreadsheet object
+        XSSFSheet spreadsheet
+            = workbook.createSheet("Results Simulation");
+  
+        // creating a row object
+        XSSFRow row;
+  
+  
+        int rowid = 1;
+        
+        /*
+        int rowidRev = 5;
+        int rowidCap = 5;
+        int rowidRel = 5;
+        int rowidSer = 5;
+  
+        int cellid = 0;
+        int cellidRev = 0;
+        int cellidCap = 0;
+        int cellidRel= 0;
+        int cellidSer = 0;
+        
+        */
+        
+        // writing the data into the sheets...
+        row = spreadsheet.createRow(0);
+        Cell cell = row.createCell(0);
+        cell.setCellValue("Name");
+        cell = row.createCell(1);
+        cell.setCellValue("Week number");
+        cell = row.createCell(2);
+        cell.setCellValue("Value");
+
+        
+        for (String s : results.keySet()) {
+        	row = spreadsheet.createRow(rowid++);
+        	int cellid = 0;
+        	
+        	 
+        	//Add name of variable to excel
+        	Cell cellName = row.createCell(cellid++);
+            cellName.setCellValue(s);
+            
+          //Add week number
+            if (s.contains("for week")) {
+            	cell = row.createCell(cellid++);
+            	String[] temp = s.split(" ");
+                cell.setCellValue(Integer.parseInt(temp[temp.length - 1]));
+            }else {
+            	cell = row.createCell(cellid++);
+                cell.setCellValue(0);
+            }
+            
+            //Add value to excel 
+            Cell cellValue = row.createCell(cellid++);
+            cellValue.setCellValue(results.get(s));
+            
+            
+            
+            
+        }
   
         // .xlsx is the format for Excel Sheets...
         // writing the workbook into the file...
