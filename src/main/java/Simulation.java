@@ -54,7 +54,8 @@ public class Simulation {
 		
 		//Export to excel options 
 		parameters.put("exportSimulationResults", false);
-		parameters.put("fileName", "results");
+		parameters.put("fileName", "results"); //Does not work anymore
+		parameters.put("filePath", "/Users/floris/Documents/Studie/Year_3_Block_4/Seminar/results.xlsx"); //Change this to the file path you want to 
 		
 		// Simulation options
 		parameters.put("nbrSimulations" , 1);
@@ -595,7 +596,7 @@ public class Simulation {
         // .xlsx is the format for Excel Sheets...
         // writing the workbook into the file...
         FileOutputStream out = new FileOutputStream(
-        		new File("/Users/floris/Documents/Studie/Year_3_Block_4/Seminar/"+ (String) parameters.get("fileName")+".xlsx"));
+        		new File((String) parameters.get("filePath")));
 
         workbook.write(out);
         out.close();

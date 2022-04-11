@@ -305,16 +305,6 @@ public class Product {
 		return sales;
 	}
 	
-	
-	public int getPredictedDemandFloris(int week) {
-		int season = week % nSeasons;
-		double levelAndTrend = level + (nWeeks + week) * trend;
-		
-		int sales = Math.max(0, (int) Math.round(levelAndTrend * seasonalIndices[season])) ;
-		
-		return sales;
-	}
-	
 	/**
 	 * This method calculates a random sales value for a given week based on
 	 * the Poisson distribution.
