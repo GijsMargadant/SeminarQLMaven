@@ -591,6 +591,10 @@ public class Simulation {
 					Product prod = chunk.get(sizes[s]);
 					if (prod != null) {
 						//Get the demand for this products
+<<<<<<< HEAD
+//						demand = prod.pullRandomSales(t, r);
+						demand = prod.pullRandomSalesPoisson(t, r);
+=======
 						if ((boolean) parameters.get("usePlusXInSales")) {
 							demand = prod.pullRandomSalesFloris(t, r);
 						}else if ((boolean) parameters.get("usePoisson") ) {
@@ -598,6 +602,7 @@ public class Simulation {
 						}else {
 							demand = prod.pullRandomSales(t, r);
 						}
+>>>>>>> branch 'main' of https://github.com/GijsMargadant/SeminarQLMaven.git
 						
 						demandWeek += demand;
 						
@@ -746,8 +751,14 @@ public class Simulation {
   
         // .xlsx is the format for Excel Sheets...
         // writing the workbook into the file...
+//        FileOutputStream out = new FileOutputStream(
+//        		new File("/Users/floris/Documents/Studie/Year_3_Block_4/Seminar/Results.xlsx"));
         FileOutputStream out = new FileOutputStream(
+<<<<<<< HEAD
+        		new File("C:\\Users\\gijsm\\Documents\\DOCUMENTEN\\School\\SeminarCaseStudy\\SolutionFiles\\Results.xlsx"));
+=======
         		new File((String) parameters.get("filePath")));
+>>>>>>> branch 'main' of https://github.com/GijsMargadant/SeminarQLMaven.git
 
         workbook.write(out);
         out.close();

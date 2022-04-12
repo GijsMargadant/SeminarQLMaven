@@ -256,9 +256,8 @@ public class Product {
 	 * @return a sales value as integer
 	 */
 	public int pullRandomSales(int week, Random r) {
-		int season = week % nSeasons;
+		int season = week % nSeasons
 		double levelAndTrend = level + (nWeeks + week) * trend;
-		
 		// Pull from normal distribution
 		double x = r.nextGaussian() * cleanedStdev +  cleanedMean;
 		if(x < 0) {
@@ -316,18 +315,6 @@ public class Product {
 	public int pullRandomSalesPoisson(int week, Random r) {
 		int season = week % nSeasons;
 		double trendVal = level + (nWeeks + week) * trend;
-		/*
-		double p = Math.exp(-cleanedMean * trendVal);
-		int i = 0;
-		double U = r.nextDouble();
-		double F = p;
-		
-		while(U >= F) {
-			i++;
-			p *= cleanedMean / (i);
-			F += p;
-		}
-		*/
 		return getPoissonRandom(cleanedMean * trendVal, r);
 	}
 	
