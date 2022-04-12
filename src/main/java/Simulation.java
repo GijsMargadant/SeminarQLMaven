@@ -43,7 +43,7 @@ public class Simulation {
 		
 		//Printing options 
 		parameters.put("printExcelFormatSimulationResults", false);
-		parameters.put("printSimulationResults", false);
+		parameters.put("printSimulationResults", true);
 		
 		parameters.put("showWeeklyCapasity", true);
 		parameters.put("showWeeklyServiceLevel", true);
@@ -54,21 +54,22 @@ public class Simulation {
 		
 		//Export to excel options 
 		parameters.put("exportSimulationResults", false);
-		parameters.put("exportOnlyAverageValues", true);
+		parameters.put("exportOnlyAverageValues", false);
 		parameters.put("fileName", "results"); //Does not work anymore
-		parameters.put("filePath", "/Users/floris/Documents/Studie/Year_3_Block_4/Seminar/results/results_100_sim_poisson.xlsx"); //Change this to the file path you want to 
+		parameters.put("filePath", "/Users/floris/Documents/Studie/Year_3_Block_4/Seminar/results/results_100_sim_testing.xlsx"); //Change this to the file path you want to 
 		
 		// Simulation options
-		parameters.put("nbrSimulations" , 100);
+		parameters.put("nbrSimulations" , 10);
 		
 		//model options
 		parameters.put("addOrderingConstraint", false); //Does not work leave false
-		parameters.put("addOrderingVariable", true); //Adds the two weeks ordering constraint weeks 44 -52
+		parameters.put("addOrderingVariable", false); //Adds the two weeks ordering constraint weeks 44 -52
+		parameters.put("addSmartTwoWeeksConstraint", false); //Adds the two weeks ordering constraint weeks 44 -52
 
 		parameters.put("useModelWithTransfer", false); //Does not terminate
 
 
-		/*
+		
 		ArrayList<String> chunkNames = new ArrayList<String>(dt.keySet());
 		int n = chunkNames.size();
 		
@@ -76,24 +77,26 @@ public class Simulation {
 		smallData.put(chunkNames.get(0), dt.get(chunkNames.get(3)));
 		
 		for (int j = 0; j < 10; j ++) {
-			System.out.println();
-			System.out.println("This is "+ j);
+//			System.out.println();
+//			System.out.println("This is "+ j);
 			HashMap<String, Product> chunk = dt.get(chunkNames.get(j));
 			
 			for (int i = 0; i < sizes.length; i ++) {
 				Product prod = chunk.get(sizes[i]);
 				if (prod != null) {
-					System.out.println("sales of size " + sizes[i]+ " is " + prod.getPredictedDemand(0));
+//					System.out.println("sales of size " + sizes[i]+ " is " + prod.getPredictedDemand(0));
 				}
 			}
 		}
-		*/
+		
 		
 //		Simulation.solve2020WithTransfer(new int[]{0,52}, sizes, dt, parameters);
 		if ((boolean) parameters.get("useModelWithTransfer")) {
 			Simulation.solve2020WithTransfer(new int[]{44, 52}, sizes, dt, parameters);
 		}else {
 			solve2020(new int[]{0,52}, sizes, dt, parameters);
+//			solve2020(new int[]{47,50}, sizes, smallData, parameters);
+
 		}
 		
 		
@@ -106,7 +109,7 @@ public class Simulation {
 		IloCplex cplex = new IloCplex ();
 //		cplex.setParam(IloCplex.Param.MIP.Tolerances.MIPGap, 0.00001);
 
-		int maxDemandProduct = 60012;
+		int maxDemandProduct = 60012 * 4;
 
 		//double cap0 = 3000*15/100;
 		//double cap1 = 15000*15/100;
@@ -128,8 +131,8 @@ public class Simulation {
 		for (int i = 0; i < n; i ++) {
 			y[i] = cplex.boolVar("y(" + chunkNames.get(i) + ")");
 			for (int t = T[0]; t < T[1]; t++) {
-				if ((boolean) parameters.get("addOrderingVariable")) { 
-					order[t][i] = cplex.boolVar("order(" + chunkNames.get(i) + ")");
+				if ((boolean) parameters.get("addOrderingVariable") || (boolean) parameters.get("addSmartTwoWeeksConstraint")) { 
+					order[t][i] = cplex.boolVar("order(" + chunkNames.get(i) +" , " + (t+ 1) +")");
 				
 				}
 				for (int s = 0; s < size; s++) {
@@ -158,7 +161,12 @@ public class Simulation {
 						objExpr = cplex.sum(objExpr, cplex.prod(prod.getAverageAveragePrice(), z[t][i][s]));
 						// Use one of the two
 //						cplex.addGe(cplex.sum(x[t][i][s][0], x[t][i][s][1]), cplex.sum(u[t][i][s], z[t][i][s]), "Constraints on goods in warehouse");
-						cplex.addEq(cplex.sum(x[t][i][s][0], x[t][i][s][1]), z[t][i][s], "Constraints on goods in warehouse");
+						if ((boolean) parameters.get("addSmartTwoWeeksConstraint")) {
+							cplex.addGe(cplex.sum(x[t][i][s][0], x[t][i][s][1]), z[t][i][s], "Constraints on goods in warehouse");
+
+						}else{
+							cplex.addEq(cplex.sum(x[t][i][s][0], x[t][i][s][1]), z[t][i][s], "Constraints on goods in warehouse");
+						}
 						
 						
 						if ((boolean) parameters.get("addOrderingVariable")) { 
@@ -176,6 +184,49 @@ public class Simulation {
 			}
 		}
 		cplex.addMaximize(objExpr);
+		
+		if ((boolean) parameters.get("addSmartTwoWeeksConstraint")) {
+			for (int t = T[0]; t < T[1]; t++) {
+				if (t >= 44 &&  t + 1 != T[1]) { //Check if we are in November or December
+					
+					for (int i = 0; i < n; i ++) {
+						HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+						boolean needToAddConstraint = true;
+						for (int s = 0; s < size; s++) {
+							Product prod = chunk.get(sizes[s]);
+							if (prod != null) {
+								IloNumExpr twoWeeksConstraintLeft = cplex.constant(0);
+								IloNumExpr twoWeeksConstraintRight = cplex.constant(0);
+								
+								twoWeeksConstraintLeft = cplex.sum(twoWeeksConstraintLeft, x[t][i][s][0]);
+								twoWeeksConstraintLeft = cplex.sum(twoWeeksConstraintLeft, x[t][i][s][1]);
+								
+								twoWeeksConstraintLeft = cplex.diff(twoWeeksConstraintLeft, x[t + 1][i][s][0]);
+								twoWeeksConstraintLeft = cplex.diff(twoWeeksConstraintLeft, x[t + 1][i][s][1]);
+
+								twoWeeksConstraintRight = cplex.sum(twoWeeksConstraintRight, cplex.prod(prod.getPredictedDemand(t), order[t + 1][i]));
+								twoWeeksConstraintRight = cplex.diff(twoWeeksConstraintRight, prod.getPredictedDemand(t));
+								twoWeeksConstraintRight = cplex.sum(twoWeeksConstraintRight, z[t][i][s]);
+								twoWeeksConstraintRight = cplex.diff(twoWeeksConstraintRight, cplex.prod(maxDemandProduct, cplex.diff(1, order[t+1][i])));
+
+								
+								cplex.addGe(twoWeeksConstraintLeft,twoWeeksConstraintRight,  "No consecutive weeks ordering");
+								
+								
+								if (needToAddConstraint) {
+									needToAddConstraint = false;
+									IloNumExpr orderConstraint = cplex.constant(0);
+									orderConstraint = cplex.sum(orderConstraint, order[t][i]);
+									orderConstraint = cplex.sum(orderConstraint, order[t + 1][i]);
+									cplex.addGe(orderConstraint, 1,  "No consecutive weeks ordering");
+								}
+							}
+						}
+					}
+					
+				}
+			}
+		}
 		
 		
 		
