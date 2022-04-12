@@ -54,21 +54,26 @@ public class Simulation {
 		
 		//Export to excel options 
 		parameters.put("exportSimulationResults", false);
-		parameters.put("exportOnlyAverageValues", false);
+		parameters.put("exportOnlyAverageValues", true);
 		parameters.put("fileName", "results"); //Does not work anymore
 		parameters.put("filePath", "/Users/floris/Documents/Studie/Year_3_Block_4/Seminar/results/results_100_sim_testing.xlsx"); //Change this to the file path you want to 
 		
 		// Simulation options
-		parameters.put("nbrSimulations" , 10);
+		parameters.put("nbrSimulations" , 100);
 		
 		//model options
 		parameters.put("addOrderingConstraint", false); //Does not work leave false
 		parameters.put("addOrderingVariable", false); //Adds the two weeks ordering constraint weeks 44 -52
 		parameters.put("addSmartTwoWeeksConstraint", false); //Adds the two weeks ordering constraint weeks 44 -52
+		
+		
+		parameters.put("changeTolaranceSetting", false); 
 
 		parameters.put("useModelWithTransfer", false); //Does not terminate
 
+		parameters.put("runAnotherSimulation", false); //allows you to run another simulation with the same obtimized model
 
+		
 		
 		ArrayList<String> chunkNames = new ArrayList<String>(dt.keySet());
 		int n = chunkNames.size();
@@ -90,6 +95,8 @@ public class Simulation {
 		}
 		
 		
+		
+		
 //		Simulation.solve2020WithTransfer(new int[]{0,52}, sizes, dt, parameters);
 		if ((boolean) parameters.get("useModelWithTransfer")) {
 			Simulation.solve2020WithTransfer(new int[]{44, 52}, sizes, dt, parameters);
@@ -107,7 +114,10 @@ public class Simulation {
 	{
 		// Create the model.
 		IloCplex cplex = new IloCplex ();
-//		cplex.setParam(IloCplex.Param.MIP.Tolerances.MIPGap, 0.00001);
+		if ((boolean) parameters.get("changeTolaranceSetting")) {
+			cplex.setParam(IloCplex.Param.MIP.Tolerances.MIPGap, 0.005);
+
+		}
 
 		int maxDemandProduct = 60012 * 4;
 
@@ -159,6 +169,11 @@ public class Simulation {
 //					cplex.addEq(u[0][i][s], 0, "Initial storage level");
 					for (int t = T[0]; t < T[1]; t++) {
 						objExpr = cplex.sum(objExpr, cplex.prod(prod.getAverageAveragePrice(), z[t][i][s]));
+						if ((boolean) parameters.get("addSmartTwoWeeksConstraint") && t >= 44) {
+							objExpr = cplex.diff(objExpr, cplex.prod(1, cplex.diff(x[t][i][s][0],z[t][i][s])));
+							objExpr = cplex.diff(objExpr, cplex.prod(1, cplex.diff(x[t][i][s][1],z[t][i][s])));
+
+						}
 						// Use one of the two
 //						cplex.addGe(cplex.sum(x[t][i][s][0], x[t][i][s][1]), cplex.sum(u[t][i][s], z[t][i][s]), "Constraints on goods in warehouse");
 						if ((boolean) parameters.get("addSmartTwoWeeksConstraint")) {
@@ -362,8 +377,17 @@ public class Simulation {
 			
 			
 			/** Running the simulation using the ordering levels from the solution */
-			Random r = new Random(1234);
+//			Random r = new Random(1234);
+			Random r = new Random();
 			Simulation.getSimulationResults(T, sizes, data, zSolution, parameters);
+			
+			
+			if((boolean) parameters.get("runAnotherSimulation")) {
+				parameters.put("filePath", "/Users/floris/Documents/Studie/Year_3_Block_4/Seminar/results/results_100_sim_poisson_with_smart_ordering_constraint.xlsx"); //Change this to the file path you want to 
+				parameters.put("usePoisson", true); //If true uses Poisson distribution otherwise uses normal
+				Simulation.getSimulationResults(T, sizes, data, zSolution, parameters);
+			}
+			
 			
 		}
 		else
