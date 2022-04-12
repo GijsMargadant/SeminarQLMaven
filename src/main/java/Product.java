@@ -256,23 +256,19 @@ public class Product {
 	 * @return a sales value as integer
 	 */
 	public int pullRandomSales(int week, Random r) {
-		int season = week % nSeasons;
-<<<<<<< HEAD
-		double trendVal = level + (nWeeks + week) * trend;
-=======
+		int season = week % nSeasons
 		double levelAndTrend = level + (nWeeks + week) * trend;
->>>>>>> branch 'main' of https://github.com/GijsMargadant/SeminarQLMaven.git
-		
 		// Pull from normal distribution
 		double x = r.nextGaussian() * cleanedStdev +  cleanedMean;
 		if(x < 0) {
 			x = 0;
 		}
+		/*
 		if (cleanedStdev> 1) {
 			System.out.println("cleanedStdev is " + cleanedStdev + "cleanedMean is " + cleanedMean);
 			System.out.println(" levelAndTrend is " + levelAndTrend + " seasonalIndices[season] is " + seasonalIndices[season] + " x is " + x );
 		}
-
+		*/
 		int sales = (int) Math.round(levelAndTrend * seasonalIndices[season] * x);
 		
 		return sales;
@@ -319,18 +315,18 @@ public class Product {
 	public int pullRandomSalesPoisson(int week, Random r) {
 		int season = week % nSeasons;
 		double trendVal = level + (nWeeks + week) * trend;
-		
-		double p = Math.exp(-cleanedMean * trendVal);
-		int i = 0;
-		double U = r.nextDouble();
-		double F = p;
-		
-		while(U >= F) {
-			i++;
-			p *= cleanedMean / (i);
-			F += p;
-		}
-		return (int) Math.round(seasonalIndices[season] * i);
+		return getPoissonRandom(cleanedMean * trendVal, r);
+	}
+	
+	private static int getPoissonRandom(double mean, Random r) {
+	    double L = Math.exp(-mean);
+	    int k = 0;
+	    double p = 1.0;
+	    do {
+	        p = p * r.nextDouble();
+	        k++;
+	    } while (p > L);
+	    return k - 1;
 	}
 	
 	
