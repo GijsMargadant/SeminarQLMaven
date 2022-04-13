@@ -230,7 +230,25 @@ public class Solver {
 			
 //			ArrayList<ArrayList<Double>> leftoverCapacity = leftoverCapacity(T, sizes, cplex, y, x, data);
 			
-			heuristic(T, sizes, yResult, leftoverCapacity.get(0), leftoverCapacity.get(0), data);
+			double[] criticalValues = {2.5758, 2.3263, 2.1701, 2.0537, 1.96, 1.8808, 1.8119, 1.7507, 1.6954, 1.6449};
+			
+			double criticalValue95 = 1.96;
+			double criticalValue98 = 2.3263;
+			
+			ArrayList<double[]> obj = new ArrayList<double[]>();
+			
+			heuristic(obj, criticalValue95, criticalValue98, T, sizes, yResult, leftoverCapacity.get(0), leftoverCapacity.get(0), data);
+			
+			for (double cvgt : criticalValues) {
+				for (double cvrot : criticalValues) {
+					heuristic(obj, cvgt, cvrot, T, sizes, yResult, leftoverCapacity.get(0), leftoverCapacity.get(0), data);
+				}
+			}
+			
+			for(double[] result : obj) {
+				System.out.print(Arrays.toString(result));
+			}
+//			System.out.println(obj.toString());
 		}
 		else
 		{
@@ -239,11 +257,8 @@ public class Solver {
 		cplex.close();
 	}
 	
-	public static void heuristic(int T, String[] sizes, int[] y, ArrayList<Double> capacity0, ArrayList<Double> capacity1, HashMap<String, HashMap<String, Product>> data) throws IloException {
+	public static void heuristic(ArrayList<double[]> obj, double criticalValue95, double criticalValue98, int T, String[] sizes, int[] y, ArrayList<Double> capacity0, ArrayList<Double> capacity1, HashMap<String, HashMap<String, Product>> data) throws IloException {
 		IloCplex cplex = new IloCplex ();
-
-		double criticalValue95 = 1.96;
-		double criticalValue98 = 2.3263;
 		
 		int size = sizes.length;
 		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
@@ -311,12 +326,15 @@ public class Solver {
 		if (cplex.getStatus() == IloCplex.Status.Optimal)
 		{
 			//Below are some different options to analyze the solution
-			
+			System.out.println("For critical value: " + criticalValue98 + " of General Toys and " + criticalValue95 + " of Recreational and Outdoor Toys");
 			System.out.println("Found optimal solution!");
 			System.out.println("Objective = " + cplex.getObjValue());
 			
+			double[] results = {cplex.getObjValue(), criticalValue98, criticalValue95};
+			obj.add(results);
+			
 			//	Write the excel file to a excel file
-			writeSolutionToDucumentHeuristics(cplex, r, y_var, data, "Solution_Heuristics_2020");
+//			writeSolutionToDucumentHeuristics(cplex, r, y_var, data, "Solution_Heuristics_2020");
 			
 			cplex.close();
 			

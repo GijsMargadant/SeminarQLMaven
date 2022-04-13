@@ -213,8 +213,8 @@ public class StochasticSolver {
 			}
 			cplex.addLe(capacity0, cap0, "Capacity constraint for small warehouse");
 			cplex.addLe(capacity1, cap1, "Capacity constraint for big warehouse");
-			cplex.addGe(serviceGT, demandGT + stdGT*criticalValue98);
-			cplex.addGe(serviceROT, demandROT + stdROT*criticalValue95);
+			cplex.addGe(serviceGT, demandGT + Math.sqrt(stdGT)*criticalValue98);
+			cplex.addGe(serviceROT, demandROT + Math.sqrt(stdROT)*criticalValue95);
 		}
 		
 		//Add the service level constraints
