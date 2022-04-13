@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Set;
 
 import ilog.concert.IloException;
 import ilog.concert.IloNumExpr;
@@ -561,10 +562,6 @@ public class Solver {
 		}
 	}
 	
-	public static void stochasticConstraint() {
-		
-	}
-	
 	
 	/**
 	 * This method allows you to write the solution to an excel file. 
@@ -611,10 +608,13 @@ public class Solver {
 		try {
 			cdw.writeHeuristicsSolutionToExcelFile(cplex, y, z, data, filename);
 		} catch (UnknownObjectException e) {
+			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (IloException e) {
+			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (IOException e) {
+			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
@@ -1633,5 +1633,63 @@ public class Solver {
 		}
 		return cplex;
 	}
+	
+	public static IloCplex addCapacityConstraint2020(int[] T, String[] sizes, IloCplex cplex, IloNumVar[][][][] x, 
+			HashMap<String, HashMap<String, Product>> data,
+			double toysPercentageSmall, double toysPercentageBig) throws IloException {
+		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
+		int n = chunkNames.size();
+		int size = sizes.length;
+		
+		for (int t = T[0]; t < T[1]; t++) {
+			IloNumExpr capacity0 = cplex.constant(0);
+			IloNumExpr capacity1 = cplex.constant(0);
+			for (int i = 0; i < n; i ++) {
+				HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+				for (int s = 0; s < size; s++) {
+					Product prod = chunk.get(sizes[s]);
+					if (prod != null) {
+						capacity0 = cplex.sum(capacity0, cplex.prod(prod.getAverageAverageM3(), x[t][i][s][0]));
+						capacity1 = cplex.sum(capacity1, cplex.prod(prod.getAverageAverageM3(), x[t][i][s][1]));
+					}
+				}
+			}
+			cplex.addLe(capacity0, 3000 * toysPercentageSmall, "Capacity constraint for small warehouse");
+			cplex.addLe(capacity1, 15000 * toysPercentageBig, "Capacity constraint for big warehouse");
+		}
+		return cplex;
+	}
+	
+	public static IloCplex addOrderingConstraint2020(int[] T, String[] sizes, IloCplex cplex, IloNumVar[][] u, 
+			HashMap<String, HashMap<String, Product>> data) throws IloException {
+		
+		ArrayList<String> chunkNames = new ArrayList<String>(data.keySet());
+		int n = chunkNames.size();
+		int size = sizes.length;
+		
+		for (int t = T[0]; t < T[1]; t++) {
+			if (t >= 44 &&  t + 1 != T[1]) {
+				
+				for (int i = 0; i < n; i ++) {
+					HashMap<String, Product> chunk = data.get(chunkNames.get(i));
+					for (int s = 0; s < size; s++) {
+						Product prod = chunk.get(sizes[s]);
+						if (prod != null) {
+							IloNumExpr ordering0 = cplex.constant(0);
+							IloNumExpr ordering1= cplex.constant(0);
+							ordering0 = cplex.sum(u[t + 1][i], u[t][i]);
+							ordering1 = cplex.sum(u[t + 1][i], u[t][i]);
+							cplex.addLe(ordering0, 1, "Two week ordering constraint small warehouse");
+							cplex.addLe(ordering1, 1, "Two week ordering constraint big warehouse");
+						
+						}
+					}
+				}
+				
+			}
+		}
+		return cplex;
+	}
+
 		
 }
