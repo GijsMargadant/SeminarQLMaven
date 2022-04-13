@@ -28,6 +28,8 @@ public class Product {
 	private double unitStorageCost;
 	private double relevanceScore;
 	private int year;
+	
+	private double variance;
 
 	private boolean[] dataPresent;
 	private double z = 3.5; // z statistic for 99% confidence level
@@ -106,6 +108,25 @@ public class Product {
 		Arrays.fill(weeklySales, 0);
 		Arrays.fill(weeklyAverageM3, 0.0);
 		Arrays.fill(weeklyAveragePrice, 0.0);
+	}
+	
+	/**
+	 * This method computes the variance between two sales data points. It assumes that
+	 * it is just a sample, so it divides by n-1 instead of n. 2020 is not taken into
+	 * account since it is to different from the rest of the data.
+	 * @param week, Week 0 is the first week of the year
+	 * @return
+	 */
+	public double getSalesVarianceOfWeek(int week) {
+//		int a = weeklySales[week];
+//		int b = weeklySales[week + nWeeks];
+//		int diff = b - a;
+//		return diff * diff * 0.5;
+		return variance;
+	}
+	
+	public void setSalesVarianceOfWeek(double var) {
+		variance = var;
 	}
 	
 	//-------------------------------------------------------------------
@@ -843,7 +864,6 @@ public class Product {
 	public void setCleanedMean(double cleanedMean) {
 		this.cleanedMean = cleanedMean;
 	}
-
 
 	public double getCleanedStdev() {
 		return cleanedStdev;
